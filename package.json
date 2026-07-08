@@ -1,0 +1,50 @@
+{
+  "name": "com-nimbalyst-jupyter",
+  "version": "0.3.0",
+  "description": "Jupyter notebook support for Nimbalyst: a custom .ipynb editor backed by @jupyterlab/notebook with in-process Pyodide kernel execution.",
+  "license": "MIT",
+  "author": "Nimbalyst, Inc.",
+  "type": "module",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "nimbalyst",
+    "jupyter",
+    "notebook",
+    "ipynb",
+    "python",
+    "extension",
+    "react"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@jupyterlab/cells": "^4.4.0",
+    "@jupyterlab/codemirror": "^4.4.0",
+    "@jupyterlab/nbformat": "^4.4.0",
+    "@jupyterlab/notebook": "^4.4.0",
+    "@jupyterlab/rendermime": "^4.4.0",
+    "@jupyterlab/services": "^7.4.0",
+    "@jupyterlab/theme-dark-extension": "^4.4.0",
+    "@jupyterlab/theme-light-extension": "^4.4.0",
+    "@lumino/widgets": "^2.5.0"
+  },
+  "devDependencies": {
+    "@nimbalyst/extension-sdk": "^0.2.1",
+    "@types/node": "^22.20.1",
+    "@types/react": "^18.2.0",
+    "@vitejs/plugin-react": "^5.1.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.0.0",
+    "vite": "^7.1.12",
+    "vitest": "^4.1.0"
+  }
+}

@@ -1,0 +1,89 @@
+.jupyter-kernel-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--nim-border-subtle, rgba(120, 120, 120, 0.2));
+  background: var(--nim-bg-surface-2, transparent);
+  font-size: 12px;
+}
+
+.jupyter-kernel-toolbar__btn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--nim-border-subtle, rgba(120, 120, 120, 0.3));
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.jupyter-kernel-toolbar__btn:hover:not(:disabled) {
+  background: var(--nim-bg-surface-3, rgba(120, 120, 120, 0.1));
+}
+
+.jupyter-kernel-toolbar__btn:active:not(:disabled) {
+  background: var(--nim-bg-surface-4, rgba(120, 120, 120, 0.2));
+}
+
+.jupyter-kernel-toolbar__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.jupyter-kernel-toolbar__sep {
+  width: 1px;
+  height: 16px;
+  background: var(--nim-border-subtle, rgba(120, 120, 120, 0.3));
+  margin: 0 2px;
+}
+
+.jupyter-kernel-toolbar__spacer {
+  flex: 1;
+}
+
+.jupyter-kernel-toolbar__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: var(--nim-bg-surface-3, rgba(120, 120, 120, 0.1));
+}
+
+.jupyter-kernel-toolbar__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nim-text-muted, #888);
+}
+
+.jupyter-kernel-toolbar__status[data-status='idle'] .jupyter-kernel-toolbar__status-dot {
+  background: #3ec46d;
+}
+.jupyter-kernel-toolbar__status[data-status='busy'] .jupyter-kernel-toolbar__status-dot {
+  background: #f5b800;
+  animation: jupyter-kernel-pulse 1s ease-in-out infinite;
+}
+.jupyter-kernel-toolbar__status[data-status='starting'] .jupyter-kernel-toolbar__status-dot,
+.jupyter-kernel-toolbar__status[data-status='restarting'] .jupyter-kernel-toolbar__status-dot,
+.jupyter-kernel-toolbar__status[data-status='autorestarting'] .jupyter-kernel-toolbar__status-dot,
+.jupyter-kernel-toolbar__status[data-status='connecting'] .jupyter-kernel-toolbar__status-dot {
+  background: #6fa8ff;
+  animation: jupyter-kernel-pulse 1s ease-in-out infinite;
+}
+.jupyter-kernel-toolbar__status[data-status='dead'] .jupyter-kernel-toolbar__status-dot,
+.jupyter-kernel-toolbar__status[data-status='terminating'] .jupyter-kernel-toolbar__status-dot,
+.jupyter-kernel-toolbar__status[data-status='disconnected'] .jupyter-kernel-toolbar__status-dot,
+.jupyter-kernel-toolbar__status[data-status='no-kernel'] .jupyter-kernel-toolbar__status-dot {
+  background: #e25c5c;
+}
+
+@keyframes jupyter-kernel-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

@@ -1,0 +1,52 @@
+.jupyter-notebook-editor-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--jp-layout-color1, #fff);
+  color: var(--jp-content-font-color1, #000);
+}
+
+.jupyter-notebook-editor-mount {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.jupyter-notebook-editor-mount > .jp-Notebook,
+.jupyter-notebook-editor-mount > .lm-Widget {
+  width: 100%;
+  height: 100%;
+}
+
+.jupyter-notebook-editor-loading,
+.jupyter-notebook-editor-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: var(--jp-layout-color2, rgba(0, 0, 0, 0.05));
+  color: var(--jp-content-font-color1, #000);
+  font-family: var(--jp-ui-font-family, sans-serif);
+  z-index: 10;
+}
+
+.jupyter-notebook-editor-error {
+  background: var(--jp-rendermime-error-background, #fdd);
+  color: var(--jp-content-font-color1, #000);
+}
+
+.jupyter-notebook-editor-kernel-error {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--nim-border-subtle, rgba(120, 120, 120, 0.2));
+  background: var(--nim-bg-warning-subtle, rgba(245, 184, 0, 0.08));
+  color: var(--nim-text-warning, #b07a00);
+  font-size: 11px;
+  cursor: help;
+  flex: 0 0 auto;
+}

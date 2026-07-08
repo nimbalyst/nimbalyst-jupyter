@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+dist/
+.agents/
+.idea/
+*.log
+npm-debug.log*
+.DS_Store
+*.tsbuildinfo
+nimbalyst-local/
