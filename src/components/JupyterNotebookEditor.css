@@ -7,6 +7,93 @@
   overflow: hidden;
   background: var(--jp-layout-color1, #fff);
   color: var(--jp-content-font-color1, #000);
+
+  /* Bridge the host's active semantic palette into JupyterLab's theme API. */
+  --jp-border-color0: var(--nim-border, #bdbdbd);
+  --jp-border-color1: var(--nim-border, #bdbdbd);
+  --jp-border-color2: var(--nim-code-border, var(--nim-border, #bdbdbd));
+  --jp-border-color3: var(--nim-bg-tertiary, #eee);
+  --jp-inverse-border-color: var(--nim-border-focus, #2196f3);
+  --jp-ui-font-color0: var(--nim-text, #111);
+  --jp-ui-font-color1: var(--nim-text, #111);
+  --jp-ui-font-color2: var(--nim-text-muted, #616161);
+  --jp-ui-font-color3: var(--nim-text-faint, #9e9e9e);
+  --jp-ui-inverse-font-color0: var(--nim-on-primary, #fff);
+  --jp-ui-inverse-font-color1: var(--nim-on-primary, #fff);
+  --jp-content-font-color0: var(--nim-text, #111);
+  --jp-content-font-color1: var(--nim-text, #111);
+  --jp-content-font-color2: var(--nim-text-muted, #616161);
+  --jp-content-font-color3: var(--nim-text-faint, #9e9e9e);
+  --jp-content-link-color: var(--nim-link, #1976d2);
+  --jp-content-link-visited-color: var(--nim-purple, #7b1fa2);
+  --jp-content-link-hover-color: var(--nim-link-hover, #2196f3);
+  --jp-layout-color0: var(--nim-bg, #fff);
+  --jp-layout-color1: var(--nim-bg-secondary, #fafafa);
+  --jp-layout-color2: var(--nim-bg-tertiary, #eee);
+  --jp-layout-color3: var(--nim-bg-active, #e0e0e0);
+  --jp-layout-color4: var(--nim-bg-hover, #e0e0e0);
+  --jp-brand-color0: var(--nim-primary-hover, #1976d2);
+  --jp-brand-color1: var(--nim-primary, #2196f3);
+  --jp-brand-color2: var(--nim-primary, #2196f3);
+  --jp-brand-color3: var(--nim-bg-selected, #bbdefb);
+  --jp-brand-color4: var(--nim-bg-selected, #e3f2fd);
+  --jp-accent-color0: var(--nim-success, #388e3c);
+  --jp-accent-color1: var(--nim-success, #4caf50);
+  --jp-warn-color0: var(--nim-warning, #f57c00);
+  --jp-warn-color1: var(--nim-warning, #ff9800);
+  --jp-error-color0: var(--nim-error, #d32f2f);
+  --jp-error-color1: var(--nim-error, #f44336);
+  --jp-success-color0: var(--nim-success, #388e3c);
+  --jp-success-color1: var(--nim-success, #4caf50);
+  --jp-info-color0: var(--nim-info, #0097a7);
+  --jp-info-color1: var(--nim-info, #00bcd4);
+  --jp-cell-editor-background: var(--nim-code-bg, var(--nim-bg-secondary, #fafafa));
+  --jp-cell-editor-border-color: var(--nim-code-border, var(--nim-border, #bdbdbd));
+  --jp-cell-editor-active-background: var(--nim-code-bg, var(--nim-bg, #fff));
+  --jp-notebook-select-background: var(--nim-bg-selected, var(--nim-bg-secondary, #fafafa));
+  --jp-notebook-multiselected-color: var(--nim-bg-active, rgba(33, 150, 243, 0.2));
+  --jp-rendermime-error-background: color-mix(in srgb, var(--nim-error, #ef4444) 12%, var(--nim-bg, #fff));
+  --jp-rendermime-table-row-background: var(--nim-table-stripe, var(--nim-bg-secondary, #fafafa));
+  --jp-rendermime-table-row-hover-background: var(--nim-bg-hover, #eee);
+  --jp-toolbar-border-color: var(--nim-toolbar-border, var(--nim-border, #bdbdbd));
+  --jp-toolbar-background: var(--nim-toolbar-bg, var(--nim-bg, #fff));
+  --jp-toolbar-active-background: var(--nim-toolbar-active, var(--nim-bg-active, #eee));
+  --jp-input-active-background: var(--nim-bg-active, var(--nim-bg, #fff));
+  --jp-input-hover-background: var(--nim-bg-hover, var(--nim-bg-tertiary, #eee));
+  --jp-input-background: var(--nim-code-bg, var(--nim-bg-secondary, #fafafa));
+  --jp-input-border-color: var(--nim-border, #bdbdbd);
+  --jp-editor-selected-background: var(--nim-bg-selected, var(--nim-bg-tertiary, #eee));
+  --jp-editor-selected-focused-background: var(--nim-bg-active, rgba(33, 150, 243, 0.2));
+  --jp-editor-cursor-color: var(--nim-border-focus, var(--nim-text, #111));
+  --jp-mirror-editor-keyword-color: var(--nim-code-selector, #008000);
+  --jp-mirror-editor-atom-color: var(--nim-code-property, #88f);
+  --jp-mirror-editor-number-color: var(--nim-code-variable, #080);
+  --jp-mirror-editor-def-color: var(--nim-code-function, #00f);
+  --jp-mirror-editor-variable-color: var(--nim-code-text, var(--nim-text, #111));
+  --jp-mirror-editor-variable-2-color: var(--nim-code-attr, #05a);
+  --jp-mirror-editor-variable-3-color: var(--nim-code-property, #085);
+  --jp-mirror-editor-punctuation-color: var(--nim-code-punctuation, #05a);
+  --jp-mirror-editor-property-color: var(--nim-code-property, #05a);
+  --jp-mirror-editor-operator-color: var(--nim-code-operator, #a67f59);
+  --jp-mirror-editor-string-color: var(--nim-code-attr, #a11);
+  --jp-mirror-editor-string-2-color: var(--nim-purple, #f50);
+  --jp-mirror-editor-builtin-color: var(--nim-code-function, #30a);
+  --jp-mirror-editor-tag-color: var(--nim-code-selector, #170);
+  --jp-mirror-editor-attribute-color: var(--nim-code-attr, #00c);
+  --jp-mirror-editor-header-color: var(--nim-primary, #00f);
+  --jp-mirror-editor-quote-color: var(--nim-quote-text, #090);
+  --jp-mirror-editor-link-color: var(--nim-link, #00c);
+  --jp-search-unselected-match-background-color: var(--nim-highlight-bg, #ff0);
+  --jp-search-unselected-match-color: var(--nim-text, #111);
+  --jp-focus-outline-color: var(--nim-border-focus, #2196f3);
+}
+
+.jupyter-notebook-editor-root[data-jp-theme-light='false'] {
+  color-scheme: dark;
+}
+
+.jupyter-notebook-editor-root[data-jp-theme-light='true'] {
+  color-scheme: light;
 }
 
 .jupyter-notebook-editor-mount {
@@ -43,10 +130,102 @@
 
 .jupyter-notebook-editor-kernel-error {
   padding: 4px 10px;
-  border-bottom: 1px solid var(--nim-border-subtle, rgba(120, 120, 120, 0.2));
-  background: var(--nim-bg-warning-subtle, rgba(245, 184, 0, 0.08));
-  color: var(--nim-text-warning, #b07a00);
+  border-bottom: 1px solid var(--nim-border, rgba(120, 120, 120, 0.2));
+  background: color-mix(in srgb, var(--nim-warning, #f59e0b) 10%, transparent);
+  color: color-mix(in srgb, var(--nim-warning, #f59e0b) 55%, var(--nim-text, #111827));
   font-size: 11px;
   cursor: help;
   flex: 0 0 auto;
+}
+
+.jupyter-runtime-setup {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--nim-border, rgba(120, 120, 120, 0.25));
+  background: color-mix(in srgb, var(--nim-warning, #f59e0b) 10%, transparent);
+  font: 12px/1.4 var(--jp-ui-font-family, sans-serif);
+}
+
+.jupyter-runtime-setup__heading {
+  font-weight: 600;
+}
+
+.jupyter-runtime-setup__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jupyter-runtime-setup__message,
+.jupyter-runtime-setup__action-error {
+  margin-top: 3px;
+  max-width: 1000px;
+  white-space: pre-wrap;
+}
+
+.jupyter-runtime-setup__action-error {
+  color: var(--jp-error-color1, #c33);
+}
+
+.jupyter-runtime-setup__actions,
+.jupyter-runtime-setup__manual-fields,
+.jupyter-runtime-setup__python {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.jupyter-runtime-setup button,
+.jupyter-runtime-setup input {
+  border: 1px solid var(--nim-border, rgba(120, 120, 120, 0.35));
+  border-radius: 4px;
+  padding: 5px 8px;
+  background: var(--nim-bg, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.jupyter-runtime-setup button:not(:disabled) {
+  cursor: pointer;
+}
+
+.jupyter-runtime-setup__pythons {
+  margin-top: 6px;
+}
+
+.jupyter-runtime-setup__python {
+  justify-content: space-between;
+  max-width: 760px;
+}
+
+.jupyter-runtime-setup__manual {
+  margin-top: 8px;
+}
+
+.jupyter-runtime-setup__manual summary {
+  cursor: pointer;
+}
+
+.jupyter-runtime-setup__manual input {
+  min-width: 220px;
+}
+
+.jupyter-kernel-inspect {
+  position: absolute;
+  z-index: 20;
+  left: 56px;
+  top: 100%;
+  max-width: min(720px, calc(100% - 72px));
+  max-height: 280px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--jp-border-color1, #bbb);
+  border-radius: 5px;
+  background: var(--jp-layout-color1, #fff);
+  color: var(--jp-content-font-color1, #111);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  white-space: pre-wrap;
+  font: 12px/1.4 var(--jp-code-font-family, monospace);
 }
