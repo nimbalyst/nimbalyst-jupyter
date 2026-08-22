@@ -1,7 +1,7 @@
 {
   "name": "com-nimbalyst-jupyter",
-  "version": "0.3.0",
-  "description": "Jupyter notebook support for Nimbalyst: a custom .ipynb editor backed by @jupyterlab/notebook with in-process Pyodide kernel execution.",
+  "version": "0.4.0",
+  "description": "Jupyter notebook support for Nimbalyst: a custom .ipynb editor backed by @jupyterlab/notebook with managed local Jupyter kernels.",
   "license": "MIT",
   "author": "Nimbalyst, Inc.",
   "type": "module",
@@ -19,32 +19,45 @@
     "react"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "npm run build:renderer && npm run build:backend",
+    "build:renderer": "vite build",
+    "build:backend": "vite build --config vite.backend.config.ts",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run tests",
+    "test:integration": "vitest run --mode integration tests/backend.integration.test.ts",
+    "test:watch": "vitest tests"
   },
   "dependencies": {
+    "@jupyter-widgets/base": "^6.0.11",
+    "@jupyter-widgets/controls": "^5.0.12",
+    "@jupyter-widgets/jupyterlab-manager": "^5.0.15",
+    "@jupyter-widgets/output": "^6.0.11",
+    "@jupyterlab/apputils": "^4.7.1",
     "@jupyterlab/cells": "^4.4.0",
     "@jupyterlab/codemirror": "^4.4.0",
+    "@jupyterlab/completer": "^4.6.1",
     "@jupyterlab/nbformat": "^4.4.0",
     "@jupyterlab/notebook": "^4.4.0",
     "@jupyterlab/rendermime": "^4.4.0",
     "@jupyterlab/services": "^7.4.0",
     "@jupyterlab/theme-dark-extension": "^4.4.0",
     "@jupyterlab/theme-light-extension": "^4.4.0",
+    "@lumino/signaling": "^2.1.6",
     "@lumino/widgets": "^2.5.0"
   },
   "devDependencies": {
-    "@nimbalyst/extension-sdk": "^0.2.1",
+    "@nimbalyst/extension-sdk": "^0.4.0",
     "@types/node": "^22.20.1",
     "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^5.1.2",
+    "jsdom": "^29.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "typescript": "^5.0.0",
     "vite": "^7.1.12",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "yjs": ">=13.5.42"
   }
 }

@@ -1,8 +1,8 @@
 {
   "id": "com.nimbalyst.jupyter",
   "name": "Jupyter",
-  "version": "0.3.0",
-  "description": "Jupyter notebook support for Nimbalyst: custom `.ipynb` editor with real kernel execution via an in-process Pyodide kernel. Local-Python kernel option is a follow-up release.",
+  "version": "0.4.0",
+  "description": "Jupyter notebook support for Nimbalyst: custom `.ipynb` editor with real kernel execution through managed local Jupyter kernels.",
   "author": "Nimbalyst",
   "main": "dist/index.js",
   "styles": "dist/index.css",
@@ -10,21 +10,82 @@
   "defaultEnabled": true,
   "permissions": {
     "filesystem": true,
-    "ai": false
+    "ai": true
   },
   "contributions": {
     "customEditors": [
       {
         "filePatterns": ["*.ipynb"],
         "displayName": "Notebook",
-        "component": "JupyterNotebookEditor"
+        "component": "JupyterNotebookEditor",
+        "collaboration": {
+          "supported": true,
+          "awarenessFields": []
+        }
       }
     ],
     "fileIcons": {
       "*.ipynb": "auto_stories"
     },
+    "configuration": {
+      "title": "Jupyter",
+      "properties": {
+        "manualServerUrl": {
+          "type": "string",
+          "default": "",
+          "scope": "workspace",
+          "description": "Optional localhost Jupyter server URL. Leave empty to use the managed server. Authentication tokens are session-only and are never persisted.",
+          "placeholder": "http://127.0.0.1:8888",
+          "order": 1
+        },
+        "manualServerRoot": {
+          "type": "string",
+          "default": "",
+          "scope": "workspace",
+          "description": "Optional filesystem root of a manually started local Jupyter server. Used to start kernels in the notebook directory.",
+          "order": 2
+        },
+        "pythonPath": {
+          "type": "string",
+          "default": "",
+          "scope": "workspace",
+          "description": "Python executable used by the managed Jupyter server. Choose it from the notebook Runtime panel.",
+          "order": 3
+        }
+      }
+    },
+    "backendModules": [
+      {
+        "id": "jupyter-runtime",
+        "entry": "dist/backend.js",
+        "runtime": "utility-process",
+        "permissions": ["mcp-server-register"],
+        "enablement": {
+          "default": "disabled",
+          "promptOn": "firstUse",
+          "purpose": "Start and manage a local Jupyter server so notebooks can execute cells through Python kernels."
+        }
+      }
+    ],
     "aiTools": [
-      "jupyter.get_notebook_projection"
+      "jupyter.get_notebook_projection",
+      "jupyter.list_cells",
+      "jupyter.get_cell_output",
+      "jupyter.run_cell",
+      "jupyter.run_all",
+      "jupyter.execute",
+      "jupyter.get_execution_status",
+      "jupyter.interrupt",
+      "jupyter.restart_kernel",
+      "jupyter.list_variables",
+      "jupyter.inspect_variable",
+      "jupyter.preview_dataframe",
+      "jupyter.update_cell_source",
+      "jupyter.insert_cell",
+      "jupyter.delete_cell",
+      "jupyter.move_cell",
+      "jupyter.set_cell_type",
+      "jupyter.clear_outputs"
     ]
   },
   "marketplace": {
@@ -32,11 +93,13 @@
     "tags": ["jupyter", "notebook", "python", "data", "ipynb"],
     "icon": "auto_stories",
     "tagline": "Edit Jupyter notebooks in Nimbalyst",
-    "longDescription": "Open, edit, and execute .ipynb files in a first-class notebook editor. Cells run against an in-process Pyodide kernel — no Python install required — and the same editor will run against your local Python (jupyter_server) in a follow-up release. JupyterLab-grade rendering for code, markdown, HTML, images, LaTeX, errors, and ipywidgets. nbformat round-trip preserves cell IDs and metadata. The agent reads notebooks via a compact projection (jupyter.get_notebook_projection) that hides large outputs by default.",
+    "longDescription": "Open, edit, and execute .ipynb files in a notebook editor built with JupyterLab notebook components. Cells run against a token-secured local Jupyter server managed by the extension backend module, with an escape hatch for user-started localhost servers. Core Jupyter MIME rendering covers code, markdown, HTML, images, LaTeX, and errors; core ipywidgets controls are supported. nbformat round-trip preserves cell IDs and metadata. AI tools can read, edit, run cells, inspect outputs, and request a compact notebook projection that hides large outputs by default.",
     "highlights": [
-      "Real cell execution via in-process Pyodide kernel, zero install",
-      "JupyterLab-grade mime rendering (HTML, images, LaTeX, errors, ipywidgets)",
-      "AI tool: compact notebook projection that hides large outputs",
+      "Real cell execution through managed local Jupyter kernels",
+      "Core Jupyter MIME rendering plus core ipywidgets controls",
+      "AI tools: full cell CRUD, execution with timeouts and interrupt, and compact projections",
+      "Agents can inspect kernel variables, preview DataFrames, and view plot images",
+      "Cell staleness flags tell agents which cells need re-running",
       "nbformat round-trip preserves cell IDs and metadata"
     ],
     "fileTypes": [".ipynb"]

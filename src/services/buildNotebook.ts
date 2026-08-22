@@ -22,6 +22,7 @@ export { parseNotebook, serializeNotebook } from './notebookSerializer';
 export interface BuiltNotebook {
   notebook: Notebook;
   model: NotebookModel;
+  rendermime: RenderMimeRegistry;
   dispose: () => void;
 }
 
@@ -32,7 +33,6 @@ interface BuildOptions {
 let cachedFactories: {
   contentFactory: Notebook.IContentFactory;
   mimeTypeService: CodeMirrorMimeTypeService;
-  rendermime: RenderMimeRegistry;
 } | null = null;
 
 function getSharedFactories() {
@@ -67,11 +67,7 @@ function getSharedFactories() {
     editorFactory: editorFactory as Cell.ContentFactory.IOptions['editorFactory'],
   });
 
-  const rendermime = new RenderMimeRegistry({
-    initialFactories: standardRendererFactories,
-  });
-
-  cachedFactories = { contentFactory, mimeTypeService, rendermime };
+  cachedFactories = { contentFactory, mimeTypeService };
   return cachedFactories;
 }
 
@@ -79,7 +75,10 @@ export function buildNotebook(
   content: nbformat.INotebookContent,
   { readOnly }: BuildOptions,
 ): BuiltNotebook {
-  const { contentFactory, mimeTypeService, rendermime } = getSharedFactories();
+  const { contentFactory, mimeTypeService } = getSharedFactories();
+  // Widget renderers are bound to a specific kernel, so each notebook needs
+  // its own registry even though the heavier editor factories remain shared.
+  const rendermime = new RenderMimeRegistry({ initialFactories: standardRendererFactories });
 
   const model = new NotebookModel();
   model.fromJSON(content);
@@ -91,7 +90,7 @@ export function buildNotebook(
     mimeTypeService,
     notebookConfig: {
       ...StaticNotebook.defaultNotebookConfig,
-      windowingMode: 'none',
+      windowingMode: 'defer',
     },
   });
   notebook.model = model;
@@ -99,9 +98,18 @@ export function buildNotebook(
   return {
     notebook,
     model,
+    rendermime,
     dispose: () => {
-      notebook.dispose();
-      model.dispose();
+      try {
+        notebook.dispose();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/Widget is not attached/i.test(message)) {
+          throw error;
+        }
+      } finally {
+        model.dispose();
+      }
     },
   };
 }

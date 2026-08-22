@@ -1,17 +1,18 @@
 /**
- * Apply the host theme to a JupyterLab mount point by toggling a body
- * data-attribute that the JupyterLab light/dark theme CSS keys off.
- *
- * NOTE: this is a minimal reconstruction; the original implementation
- * was lost in the Datalayer pivot. If theming regresses, restore from
- * git history of an earlier checkout or rewrite based on
- * @jupyterlab/theme-{light,dark}-extension's CSS variable map.
+ * Apply JupyterLab's theme metadata to the editor root. The actual palette is
+ * a scoped CSS bridge from the host's inherited --nim-* tokens to Jupyter's
+ * --jp-* tokens, so extension-contributed themes update without per-theme JS.
  */
 
 type ThemeName = 'light' | 'dark' | string | undefined;
 
 export function applyTheme(container: HTMLElement, theme: ThemeName): void {
-  const isDark = theme === 'dark';
+  const isDark = isDarkTheme(theme);
+  container.classList.add('jp-ThemedContainer');
   container.setAttribute('data-jp-theme-light', isDark ? 'false' : 'true');
-  container.setAttribute('data-jp-theme-name', isDark ? 'JupyterLab Dark' : 'JupyterLab Light');
+  container.setAttribute('data-jp-theme-name', `Nimbalyst ${isDark ? 'Dark' : 'Light'}`);
+}
+
+export function isDarkTheme(theme: ThemeName): boolean {
+  return theme?.toLowerCase().includes('dark') ?? false;
 }

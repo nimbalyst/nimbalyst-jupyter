@@ -1,0 +1,6 @@
+{
+  "//": "Scopes this directory to CommonJS. The repo root is type:module, and Node ignores NODE_PATH for ESM resolution -- which is how the host's Playwright test runner hands external extension projects its own @playwright/test. Under CommonJS the require() chain honors NODE_PATH, so specs here load the SAME Playwright instance the runner uses instead of failing to resolve (or, worse, loading a second copy). Do not add dependencies here; this file exists only for the module type.",
+  "name": "com-nimbalyst-jupyter-e2e",
+  "private": true,
+  "type": "commonjs"
+}
