@@ -1,0 +1,248 @@
+/*
+ * Top toolbar.
+ *
+ * Borders come off every control: hover and state supply the affordance, so the
+ * row reads as three groups rather than a grid of boxes. Every colour is a host
+ * `--nim-*` token the host actually defines (docs/CSS_VARIABLES.md in the
+ * Nimbalyst repo) with a literal fallback -- the same set Menu.css uses -- so
+ * the bar tracks the light and dark host themes with no per-theme rule and
+ * nothing hardcoded dark. No colour falls back through `--jp-*`; see the note
+ * in CellToolbar.css for why that indirection is wrong in both directions.
+ */
+
+.jupyter-toolbar {
+  /* Tinted text, mixed toward the theme's own text colour so it darkens on a
+     light theme and lightens on a dark one -- raw `--nim-error` is only
+     ~3.7:1 on white. */
+  --jupyter-toolbar-danger-text: color-mix(in srgb, var(--nim-error, #ef4444) 70%, var(--nim-text, #111827));
+
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--nim-border, rgba(120, 120, 120, 0.2));
+  background: transparent;
+  font-size: 12px;
+}
+
+.jupyter-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 26px;
+  min-width: 26px;
+  padding: 0 7px;
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nim-text-muted, #6b7280);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.jupyter-toolbar__btn--icon {
+  padding: 0 5px;
+}
+
+/* The one control that changes label in place. "Stop" is not "Run ▾" wide, and
+   a content-sized box would drag Restart several pixels left every time the
+   kernel goes busy -- so the container is pinned and the halves share it. */
+.jupyter-toolbar__run {
+  width: 84px;
+}
+
+.jupyter-toolbar__run .jupyter-split__main {
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 0 6px;
+}
+
+/* Busy drops the caret entirely, so the primary half owns the whole pill. */
+.jupyter-toolbar__run .jupyter-split__main:only-child {
+  border-radius: 6px;
+}
+
+.jupyter-toolbar__btn svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.jupyter-toolbar__btn:hover:not(:disabled) {
+  background: var(--nim-bg-hover, rgba(120, 120, 120, 0.14));
+  color: var(--nim-text, inherit);
+}
+
+.jupyter-toolbar__btn:active:not(:disabled) {
+  background: var(--nim-bg-active, rgba(120, 120, 120, 0.22));
+}
+
+.jupyter-toolbar__btn:focus-visible,
+.jupyter-toolbar__chip:focus-visible {
+  outline: 2px solid var(--nim-border-focus, var(--nim-primary, #3b82f6));
+  outline-offset: -1px;
+}
+
+.jupyter-toolbar__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Separators mark semantic group boundaries only: kernel actions | insert. */
+.jupyter-toolbar__sep {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 16px;
+  margin: 0 7px;
+  background: var(--nim-border, rgba(120, 120, 120, 0.3));
+}
+
+.jupyter-toolbar__spacer {
+  flex: 1 1 auto;
+}
+
+/* ---------- kernel chip ---------- */
+
+.jupyter-toolbar__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 320px;
+  height: 26px;
+  padding: 0 9px;
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: var(--nim-bg-hover, rgba(120, 120, 120, 0.12));
+  color: var(--nim-text-muted, #6b7280);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.jupyter-toolbar__chip:hover {
+  background: var(--nim-bg-active, rgba(120, 120, 120, 0.2));
+  border-color: var(--nim-border, rgba(120, 120, 120, 0.35));
+  color: var(--nim-text, inherit);
+}
+
+/* An alpha wash over whatever surface the theme supplies, so the error tone
+   reads on light and dark alike; only the text takes a solid colour. */
+.jupyter-toolbar__chip[data-tone='error'] {
+  background: color-mix(in srgb, var(--nim-error, #ef4444) 12%, transparent);
+  color: var(--jupyter-toolbar-danger-text);
+}
+
+.jupyter-toolbar__chip[data-tone='error']:hover {
+  background: color-mix(in srgb, var(--nim-error, #ef4444) 22%, transparent);
+  color: var(--jupyter-toolbar-danger-text);
+}
+
+.jupyter-toolbar__chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status dot palette.
+ *
+ * Once the chip label ellipsises, the dot is the only thing still reporting
+ * kernel state, so it is a meaningful graphic and owes 3:1 against the chip
+ * surface (WCAG 1.4.11). The host's own status tokens are tuned for text on
+ * `--nim-bg`; on the light theme's chip wash (~#efefef) `--nim-success` and
+ * `--nim-warning` measure 2.2:1 and 1.9:1, so the light theme pins darker
+ * values of the same hues. The dark theme takes the host token, which clears
+ * it comfortably there. `tests/notebookToolbar.test.tsx` measures the light
+ * values, so a bright hex cannot creep back in. */
+.jupyter-toolbar {
+  --jupyter-dot-idle: var(--nim-success, #3ec46d);
+  --jupyter-dot-busy: var(--nim-warning, #f5b800);
+  --jupyter-dot-starting: var(--nim-info, #6fa8ff);
+  --jupyter-dot-error: var(--nim-error, #e25c5c);
+}
+
+[data-jp-theme-light='true'] .jupyter-toolbar {
+  --jupyter-dot-idle: #14803c;
+  --jupyter-dot-busy: #8a6100;
+  --jupyter-dot-starting: #1668d6;
+  --jupyter-dot-error: #c8232c;
+}
+
+.jupyter-toolbar__dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--nim-text-muted, #6b7280);
+}
+
+.jupyter-toolbar__chip[data-status='idle'] .jupyter-toolbar__dot {
+  background: var(--jupyter-dot-idle);
+}
+
+.jupyter-toolbar__chip[data-status='busy'] .jupyter-toolbar__dot {
+  background: var(--jupyter-dot-busy);
+  animation: jupyter-kernel-pulse 1s ease-in-out infinite;
+}
+
+.jupyter-toolbar__chip[data-status='starting'] .jupyter-toolbar__dot,
+.jupyter-toolbar__chip[data-status='restarting'] .jupyter-toolbar__dot,
+.jupyter-toolbar__chip[data-status='autorestarting'] .jupyter-toolbar__dot,
+.jupyter-toolbar__chip[data-status='connecting'] .jupyter-toolbar__dot {
+  background: var(--jupyter-dot-starting);
+  animation: jupyter-kernel-pulse 1s ease-in-out infinite;
+}
+
+.jupyter-toolbar__chip[data-status='dead'] .jupyter-toolbar__dot,
+.jupyter-toolbar__chip[data-status='terminating'] .jupyter-toolbar__dot,
+.jupyter-toolbar__chip[data-status='disconnected'] .jupyter-toolbar__dot,
+.jupyter-toolbar__chip[data-status='unknown'] .jupyter-toolbar__dot,
+.jupyter-toolbar__chip[data-status='no-kernel'] .jupyter-toolbar__dot {
+  background: var(--jupyter-dot-error);
+}
+
+@keyframes jupyter-kernel-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jupyter-toolbar__dot {
+    animation: none !important;
+  }
+}
+
+/* ---------- kernel info strip ---------- */
+
+.jupyter-toolbar__info {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--nim-border, rgba(120, 120, 120, 0.2));
+  /* A wash, not `--nim-bg-secondary`: the editor root's own background is
+     bridged from that very token, so the strip would be invisible. */
+  background: var(--nim-bg-hover, rgba(120, 120, 120, 0.06));
+}
+
+.jupyter-toolbar__info-text {
+  margin: 0;
+  overflow-x: auto;
+  color: var(--nim-text-muted, #6b7280);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

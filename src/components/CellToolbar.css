@@ -1,0 +1,199 @@
+/*
+ * Cell chrome: the per-cell hover toolbar and the execution-count gutter.
+ *
+ * Every colour is a host `--nim-*` token -- one the host actually defines, see
+ * docs/CSS_VARIABLES.md in the Nimbalyst repo -- with a literal fallback, the
+ * same set Menu.css and NotebookToolbar.css use, so the chrome tracks the light
+ * and dark host themes with no per-theme rule and nothing hardcoded dark.
+ * Colours do not fall back through `--jp-*`: those are bridged FROM the same
+ * `--nim-*` tokens in JupyterNotebookEditor.css, so the indirection is circular
+ * inside the editor and resolves to JupyterLab's light defaults outside it.
+ *
+ * Nothing here introduces a `transform`, `filter` or `contain` on a cell: those
+ * would become the containing block for the `position: fixed` menu surface.
+ */
+
+/* The chrome is positioned against the cell, so the cell has to be a
+   positioned ancestor. JupyterLab leaves `.jp-Cell` static. */
+.jupyter-notebook-editor-root .jp-Cell {
+  position: relative;
+}
+
+/* Extra headroom so the first cell's toolbar, which floats above the cell's top
+   edge, is not clipped by the notebook's own padding. */
+.jupyter-notebook-editor-root .jp-Notebook {
+  padding-top: 18px;
+}
+
+/* Our gutter renders the execution count, so JupyterLab's prompt would be a
+   duplicate. Hidden rather than removed to keep the column's width, and scoped
+   to chromed cells so a read-only notebook (which mounts no chrome) keeps the
+   original prompt. */
+.jupyter-cell--chromed .jp-InputPrompt {
+  visibility: hidden;
+}
+
+/* Full-bleed, inert layer: only the controls inside it take the pointer. */
+.jupyter-cell-chrome {
+  /* Tinted text, mixed toward the theme's own text colour so it darkens on a
+     light theme and lightens on a dark one. The raw brand/status tokens are
+     only ~3.7:1 against the surface they sit on. */
+  --jupyter-cell-primary-text: color-mix(in srgb, var(--nim-primary, #3b82f6) 75%, var(--nim-text, #111827));
+  --jupyter-cell-danger-text: color-mix(in srgb, var(--nim-error, #ef4444) 70%, var(--nim-text, #111827));
+  --jupyter-cell-warning-text: color-mix(in srgb, var(--nim-warning, #f59e0b) 55%, var(--nim-text, #111827));
+
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 12px;
+}
+
+/* ---------- gutter ---------- */
+
+.jupyter-cell-gutter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  width: calc(var(--jp-cell-collapser-width, 8px) + var(--jp-cell-prompt-width, 64px));
+  padding: 5px 6px 0 0;
+}
+
+.jupyter-cell-gutter__count {
+  padding-top: 3px;
+  color: var(--nim-text-faint, #9ca3af);
+  font-family: var(--jp-cell-prompt-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: default;
+  pointer-events: auto;
+}
+
+/* Edited since it ran: the one state that is definitely out of date. */
+.jupyter-cell-gutter__count[data-freshness='stale'],
+.jupyter-cell-gutter__count[data-freshness='restarted'] {
+  color: var(--jupyter-cell-warning-text);
+  font-weight: 600;
+}
+
+/* Ran in an earlier session: unknowable, not stale. Deliberately a different
+   signal -- dotted, not amber -- so the two never read as the same claim. */
+.jupyter-cell-gutter__count[data-freshness='unknown'] {
+  border-bottom: 1px dotted var(--nim-text-faint, #9ca3af);
+  color: var(--nim-text-faint, #9ca3af);
+}
+
+.jupyter-cell-gutter__run {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  appearance: none;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--nim-text-faint, #9ca3af);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.jupyter-cell-gutter__run:hover:not(:disabled) {
+  background: var(--nim-bg-selected, rgba(59, 130, 246, 0.16));
+  color: var(--jupyter-cell-primary-text);
+}
+
+.jupyter-cell-gutter__run:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.jupyter-cell-gutter__run:focus-visible {
+  outline: 2px solid var(--nim-border-focus, var(--nim-primary, #3b82f6));
+  outline-offset: -1px;
+}
+
+/* ---------- toolbar ---------- */
+
+.jupyter-cell-toolbar {
+  position: absolute;
+  top: -11px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border: 1px solid var(--nim-border, rgba(120, 120, 120, 0.3));
+  border-radius: 7px;
+  background: var(--nim-bg, #fff);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+}
+
+.jupyter-cell-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  height: 22px;
+  min-width: 22px;
+  padding: 0 5px;
+  appearance: none;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--nim-text-muted, #6b7280);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.jupyter-cell-toolbar__btn svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.jupyter-cell-toolbar__btn--text {
+  padding: 0 4px 0 6px;
+}
+
+.jupyter-cell-toolbar__btn:hover:not(:disabled) {
+  background: var(--nim-bg-hover, rgba(120, 120, 120, 0.16));
+  color: var(--nim-text, inherit);
+}
+
+.jupyter-cell-toolbar__btn:active:not(:disabled) {
+  background: var(--nim-bg-active, rgba(120, 120, 120, 0.24));
+}
+
+.jupyter-cell-toolbar__btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--nim-error, #ef4444) 14%, transparent);
+  color: var(--jupyter-cell-danger-text);
+}
+
+.jupyter-cell-toolbar__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.jupyter-cell-toolbar__btn:focus-visible {
+  outline: 2px solid var(--nim-border-focus, var(--nim-primary, #3b82f6));
+  outline-offset: -1px;
+}
+
+.jupyter-cell-toolbar__sep {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 13px;
+  margin: 0 3px;
+  background: var(--nim-border, rgba(120, 120, 120, 0.35));
+}

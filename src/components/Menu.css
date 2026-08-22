@@ -1,0 +1,245 @@
+/*
+ * Menu surface + split button.
+ *
+ * The surface is portaled to `document.body`, which puts it OUTSIDE
+ * `.jupyter-notebook-editor-root` -- and that root is where the
+ * `--nim-*` -> `--jp-*` bridge in `JupyterNotebookEditor.css` lives. At body
+ * level the only `--jp-*` values in scope are the ones JupyterLab's own
+ * stylesheet declares on `:root`, which are its LIGHT defaults, so a `--jp-*`
+ * fallback here silently paints a light surface on a dark theme. Nothing in
+ * this file may fall back to `--jp-*`: host `--nim-*` tokens (set as inline
+ * styles on `document.documentElement`, so they do reach the portal) with
+ * literal fallbacks only.
+ *
+ * Only tokens the host actually defines are used -- see docs/CSS_VARIABLES.md
+ * in the Nimbalyst repo. An invented name is not a graceful degradation; it is
+ * a guaranteed fallback, which is how this surface ended up light-on-light.
+ */
+
+.jupyter-menu {
+  /* Tinted text sits on the menu surface, so it is darkened on a light theme
+     and lightened on a dark one by mixing toward the theme's own text colour.
+     A raw --nim-primary / --nim-error is only ~3.7:1 on white. */
+  --jupyter-menu-danger-text: color-mix(in srgb, var(--nim-error, #ef4444) 70%, var(--nim-text, #111827));
+
+  /* Above host chrome (the app uses 100-1000 for panels) but below its modal
+     layer at 10000. A body-level portal is not in the editor's stacking
+     context, so the editor's own z-indexes say nothing about this one. */
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  overflow-y: auto;
+  border: 1px solid var(--nim-border, rgba(120, 120, 120, 0.3));
+  border-radius: 8px;
+  background: var(--nim-bg, #fff);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  /* Explicit, not `inherit`: the portal's parent is <body>, whose colour is the
+     host's and need not match this surface. */
+  color: var(--nim-text, #111827);
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+
+.jupyter-menu:focus {
+  outline: none;
+}
+
+.jupyter-menu__header {
+  padding: 7px 9px 5px;
+  color: var(--nim-text-muted, #6b7280);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.jupyter-menu__rule {
+  height: 1px;
+  margin: 5px 3px;
+  background: var(--nim-border, rgba(120, 120, 120, 0.25));
+}
+
+.jupyter-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 9px;
+  appearance: none;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.jupyter-menu__item:hover:not(:disabled),
+.jupyter-menu__item[data-active='true']:not(:disabled) {
+  background: var(--nim-bg-hover, rgba(120, 120, 120, 0.14));
+}
+
+.jupyter-menu__item:focus-visible {
+  outline: 2px solid var(--nim-border-focus, var(--nim-primary, #3b82f6));
+  outline-offset: -2px;
+}
+
+.jupyter-menu__item[data-checked='true'] {
+  background: var(--nim-bg-selected, rgba(59, 130, 246, 0.14));
+}
+
+.jupyter-menu__item[data-checked='true']:hover:not(:disabled),
+.jupyter-menu__item[data-checked='true'][data-active='true']:not(:disabled) {
+  background: color-mix(in srgb, var(--nim-primary, #3b82f6) 24%, transparent);
+}
+
+.jupyter-menu__item[data-danger='true'] {
+  color: var(--jupyter-menu-danger-text);
+}
+
+.jupyter-menu__item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.jupyter-menu__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  opacity: 0.85;
+}
+
+.jupyter-menu__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.jupyter-menu__label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jupyter-menu__shortcut {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 14px;
+  color: var(--nim-text-faint, #9ca3af);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+/* ---------- split button ---------- */
+
+.jupyter-split {
+  /* Same mix-toward-text treatment as the menu's danger row, for the same
+     reason: the tint is text, and the raw brand tokens are too light on a
+     light theme and too dark on a dark one. */
+  --jupyter-split-primary-text: color-mix(in srgb, var(--nim-primary, #3b82f6) 75%, var(--nim-text, #111827));
+  --jupyter-split-danger-text: color-mix(in srgb, var(--nim-error, #ef4444) 70%, var(--nim-text, #111827));
+
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border-radius: 6px;
+}
+
+.jupyter-split__main,
+.jupyter-split__caret {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.jupyter-split__main {
+  padding: 0 6px 0 8px;
+  border-radius: 6px 0 0 6px;
+}
+
+.jupyter-split__caret {
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 3px;
+  border-radius: 0 6px 6px 0;
+  color: var(--nim-text-muted, #6b7280);
+}
+
+.jupyter-split__icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.jupyter-split__icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.jupyter-split__main:hover:not(:disabled),
+.jupyter-split__caret:hover:not(:disabled) {
+  background: var(--nim-bg-hover, rgba(120, 120, 120, 0.14));
+}
+
+.jupyter-split__main:focus-visible,
+.jupyter-split__caret:focus-visible {
+  outline: 2px solid var(--nim-border-focus, var(--nim-primary, #3b82f6));
+  outline-offset: -1px;
+}
+
+.jupyter-split__main:disabled,
+.jupyter-split__caret:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Tinted tones. The tint is an alpha wash over whatever the theme's surface is,
+   so it reads on light and dark alike; only the text takes a solid colour. */
+.jupyter-split[data-tone='primary'] .jupyter-split__main {
+  background: var(--nim-bg-selected, rgba(59, 130, 246, 0.16));
+  color: var(--jupyter-split-primary-text);
+  font-weight: 500;
+}
+
+.jupyter-split[data-tone='primary'] .jupyter-split__caret {
+  background: var(--nim-accent-subtle, rgba(59, 130, 246, 0.1));
+  color: var(--jupyter-split-primary-text);
+}
+
+.jupyter-split[data-tone='primary'] .jupyter-split__main:hover:not(:disabled),
+.jupyter-split[data-tone='primary'] .jupyter-split__caret:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--nim-primary, #3b82f6) 26%, transparent);
+}
+
+.jupyter-split[data-tone='danger'] .jupyter-split__main {
+  background: color-mix(in srgb, var(--nim-error, #ef4444) 16%, transparent);
+  color: var(--jupyter-split-danger-text);
+  font-weight: 500;
+}
+
+.jupyter-split[data-tone='danger'] .jupyter-split__caret {
+  background: color-mix(in srgb, var(--nim-error, #ef4444) 10%, transparent);
+  color: var(--jupyter-split-danger-text);
+}
+
+.jupyter-split[data-tone='danger'] .jupyter-split__main:hover:not(:disabled),
+.jupyter-split[data-tone='danger'] .jupyter-split__caret:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--nim-error, #ef4444) 26%, transparent);
+}
