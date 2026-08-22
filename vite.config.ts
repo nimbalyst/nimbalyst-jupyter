@@ -4,6 +4,15 @@ import { createExtensionConfig } from '@nimbalyst/extension-sdk/vite';
 import { resolve } from 'path';
 import controlsPackage from '@jupyter-widgets/controls/package.json' with { type: 'json' };
 
+/**
+ * The renderer sourcemap is ~13MB -- more than twice the bundle it maps -- so it
+ * stays out of the published artifact. Set NIMBALYST_EXT_SOURCEMAP=1 (or use
+ * `npm run dev` / `npm run build:debug`) to get it back while debugging.
+ * dist/backend.js.map is ~47KB and ships unconditionally, since diagnosing the
+ * process-spawning half is worth far more than it costs.
+ */
+const RENDERER_SOURCEMAP = process.env.NIMBALYST_EXT_SOURCEMAP === '1';
+
 const PROCESS_SHIM_BANNER = `
 if (typeof process === 'undefined') {
   globalThis.process = { env: { NODE_ENV: 'production' }, browser: true, platform: '' };
@@ -95,7 +104,7 @@ export default defineConfig({
     },
     outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: RENDERER_SOURCEMAP,
   },
   resolve: {
     alias: {

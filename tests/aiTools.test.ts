@@ -25,6 +25,7 @@ function context(editorAPI: JupyterEditorAPI, callBackendTool?: (name: string, p
 
 function mockApi(overrides: Partial<JupyterEditorAPI> = {}): JupyterEditorAPI {
   return {
+    isReadOnly: vi.fn(() => false),
     getCellById: vi.fn((id: string) => ({
       id,
       index: 0,
@@ -382,5 +383,50 @@ describe('jupyter AI tools', () => {
     expect(typeResult.data).toMatchObject({ cell: { id: 'cell-1-new', cellType: 'markdown' } });
     expect(clearResult.success).toBe(true);
     expect(clearResult.data).toEqual({ cleared: 3 });
+  });
+
+  it('refuses every editor-write tool on a read-only notebook', async () => {
+    const api = mockApi({ isReadOnly: vi.fn(() => true) });
+    const writeTools = aiTools.filter(
+      (candidate) => (candidate.access as { kind?: string } | undefined)?.kind === 'editor-write',
+    );
+    expect(writeTools.map((candidate) => candidate.name)).toEqual([
+      'jupyter.run_cell',
+      'jupyter.run_all',
+      'jupyter.restart_kernel',
+      'jupyter.update_cell_source',
+      'jupyter.insert_cell',
+      'jupyter.delete_cell',
+      'jupyter.move_cell',
+      'jupyter.set_cell_type',
+      'jupyter.clear_outputs',
+    ]);
+
+    for (const writeTool of writeTools) {
+      const result = await writeTool.handler(
+        { cellId: 'cell-1', source: 'print("nope")', cellType: 'markdown', toIndex: 2 },
+        context(api),
+      );
+      expect(result.success, `${writeTool.name} should be refused`).toBe(false);
+      expect(result.error).toMatch(/read-only/);
+    }
+
+    expect(api.updateCellSource).not.toHaveBeenCalled();
+    expect(api.insertCell).not.toHaveBeenCalled();
+    expect(api.deleteCell).not.toHaveBeenCalled();
+    expect(api.moveCell).not.toHaveBeenCalled();
+    expect(api.setCellType).not.toHaveBeenCalled();
+    expect(api.clearOutputs).not.toHaveBeenCalled();
+    expect(api.runCellById).not.toHaveBeenCalled();
+    expect(api.runAll).not.toHaveBeenCalled();
+    expect(api.restartKernel).not.toHaveBeenCalled();
+  });
+
+  it('still allows transient execute on a read-only notebook', async () => {
+    const api = mockApi({ isReadOnly: vi.fn(() => true) });
+    const result = await tool('jupyter.execute').handler({ code: '1 + 1' }, context(api));
+
+    expect(result.success).toBe(true);
+    expect(api.executeCode).toHaveBeenCalled();
   });
 });

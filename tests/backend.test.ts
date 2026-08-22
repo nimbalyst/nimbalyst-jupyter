@@ -4,6 +4,7 @@ import {
   buildJupyterServerArgs,
   buildPipInstallArgs,
   buildPythonCandidates,
+  resolveServerToken,
   resolveWorkspaceRoot,
 } from '../src/backend';
 
@@ -53,5 +54,20 @@ describe('managed Jupyter backend helpers', () => {
     expect(buildPipInstallArgs(false)).toEqual([
       '-m', 'pip', 'install', 'jupyter_server', 'jupyter-client', 'ipykernel', 'ipywidgets',
     ]);
+  });
+
+  it('ignores caller-supplied tokens unless a developer opted in', () => {
+    // Without the opt-in, an agent asking for no auth or a known token still
+    // gets a fresh random one -- the server is never left open.
+    expect(resolveServerToken({ allowTokenless: true }, false)).toHaveLength(48);
+    expect(resolveServerToken({ token: '' }, false)).toHaveLength(48);
+    expect(resolveServerToken({ token: 'attacker-known' }, false)).not.toBe('attacker-known');
+    expect(resolveServerToken({}, false)).not.toBe(resolveServerToken({}, false));
+  });
+
+  it('honours the tokenless dev escape hatch when explicitly enabled', () => {
+    expect(resolveServerToken({ allowTokenless: true }, true)).toBe('');
+    expect(resolveServerToken({ token: 'fixed' }, true)).toBe('fixed');
+    expect(resolveServerToken({}, true)).toHaveLength(48);
   });
 });

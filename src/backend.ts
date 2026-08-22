@@ -75,6 +75,28 @@ interface ServerState {
 }
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
+
+/**
+ * `allowTokenless` and an explicit `token` let a caller stand up a local Jupyter
+ * server whose auth is absent or attacker-known, which is arbitrary code
+ * execution for anything else on the machine. They stay out of the MCP tool
+ * schema and are ignored unless a developer opts in through the environment, so
+ * an agent driving these tools can never reach them.
+ */
+function devUnsafeServerAllowed(): boolean {
+  return process.env.NIMBALYST_JUPYTER_DEV_UNSAFE_SERVER === '1';
+}
+
+export function resolveServerToken(
+  params: Pick<EnsureServerParams, 'token' | 'allowTokenless'>,
+  devUnsafeAllowed = devUnsafeServerAllowed(),
+): string {
+  if (devUnsafeAllowed) {
+    if (typeof params.token === 'string') return params.token;
+    if (params.allowTokenless === true) return '';
+  }
+  return randomBytes(24).toString('hex');
+}
 const TOOL_DESCRIPTORS = [
   {
     name: 'list_pythons',
@@ -152,16 +174,6 @@ const TOOL_DESCRIPTORS = [
         startupTimeoutMs: {
           type: 'number',
           description: 'How long to wait for Jupyter to answer /api/status.',
-        },
-        allowTokenless: {
-          type: 'boolean',
-          description:
-            'Development escape hatch. Defaults false; when true and token is empty the server starts without auth.',
-        },
-        token: {
-          type: 'string',
-          description:
-            'Optional explicit Jupyter token. Omit for a generated random token.',
         },
         pythonPath: {
           type: 'string',
@@ -550,7 +562,7 @@ async function ensureServer(
 
   const rootDir = resolveWorkspaceRoot(ctx.workspacePath, params.rootDir);
   const port = normalizePort(params.port) ?? await pickAvailablePort();
-  const token = params.token ?? (params.allowTokenless ? '' : randomBytes(24).toString('hex'));
+  const token = resolveServerToken(params);
   const startupTimeoutMs = normalizeTimeout(params.startupTimeoutMs);
   const args = buildJupyterServerArgs({ rootDir, port, token });
   const logPath = path.join(ctx.dataDir, 'jupyter-server.log');

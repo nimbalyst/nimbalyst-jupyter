@@ -141,6 +141,7 @@ export const JupyterNotebookEditor = forwardRef<unknown, EditorHostProps>(
               built.model,
               () => sessionContextRef.current,
               stalenessTrackerRef.current,
+              () => host.readOnly === true,
             ),
           );
           attachKernelShortcuts(built.notebook, {

@@ -209,7 +209,7 @@ export const aiTools: ExtensionAITool[] = [
             },
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const result = await runCell(api.value, params);
             if (!result) return missingCellResult(params);
@@ -253,7 +253,7 @@ export const aiTools: ExtensionAITool[] = [
             },
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const result = await api.value.runAll({
                 timeoutMs: getTimeout(params.timeoutMs, DEFAULT_RUN_TIMEOUT_MS),
@@ -395,7 +395,7 @@ export const aiTools: ExtensionAITool[] = [
             },
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const result = await api.value.restartKernel({ runAll: params.runAll === true });
             return {
@@ -533,7 +533,7 @@ export const aiTools: ExtensionAITool[] = [
             required: ['cellId', 'source'],
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const cellId = typeof params.cellId === 'string' ? params.cellId : '';
             const source = typeof params.source === 'string' ? params.source : '';
@@ -584,7 +584,7 @@ export const aiTools: ExtensionAITool[] = [
             required: ['cellType', 'source'],
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const cellType = normalizeCellType(params.cellType);
             if (!cellType) {
@@ -630,7 +630,7 @@ export const aiTools: ExtensionAITool[] = [
             required: ['cellId'],
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const cellId = typeof params.cellId === 'string' ? params.cellId : '';
             if (!cellId) return { success: false, error: '`cellId` is required.' };
@@ -666,7 +666,7 @@ export const aiTools: ExtensionAITool[] = [
             required: ['cellId', 'toIndex'],
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const cellId = typeof params.cellId === 'string' ? params.cellId : '';
             if (!cellId) return { success: false, error: '`cellId` is required.' };
@@ -706,7 +706,7 @@ export const aiTools: ExtensionAITool[] = [
             required: ['cellId', 'cellType'],
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const cellId = typeof params.cellId === 'string' ? params.cellId : '';
             const cellType = normalizeCellType(params.cellType);
@@ -741,7 +741,7 @@ export const aiTools: ExtensionAITool[] = [
             },
         },
         handler: async (params, context) => {
-            const api = requireJupyterEditorAPI(context.editorAPI);
+            const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
             const cellId = readOptionalString(params.cellId);
             const cleared = api.value.clearOutputs(cellId ?? undefined);
@@ -777,6 +777,30 @@ function requireJupyterEditorAPI(editorAPI: unknown):
         };
     }
     return { ok: true, value: api as JupyterEditorAPI };
+}
+
+/**
+ * Gate for every `editor-write` tool. Mutating the model and executing cells
+ * both write to the document, so both are refused when the host opened the
+ * notebook read-only. `jupyter.execute` stays available as the read-only-safe
+ * way to run code, since it never touches the notebook.
+ */
+function requireWritableJupyterEditorAPI(editorAPI: unknown):
+  | { ok: true; value: JupyterEditorAPI }
+  | { ok: false; error: { success: false; error: string } } {
+    const api = requireJupyterEditorAPI(editorAPI);
+    if (!api.ok) return api;
+    if (typeof api.value.isReadOnly === 'function' && api.value.isReadOnly()) {
+        return {
+            ok: false,
+            error: {
+                success: false,
+                error:
+                    'This notebook is open read-only, so it cannot be edited or executed. Use jupyter.execute to run code against the kernel without writing to the notebook.',
+            },
+        };
+    }
+    return api;
 }
 
 async function runIntrospection(

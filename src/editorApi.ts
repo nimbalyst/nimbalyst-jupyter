@@ -90,6 +90,8 @@ export interface InsertCellOptions {
 }
 
 export interface JupyterEditorAPI {
+  /** Mirrors `host.readOnly`. Every mutating method below is a no-op when true. */
+  isReadOnly(): boolean;
   getCellById(id: string): CellSnapshot | null;
   getCellByIndex(index: number): CellSnapshot | null;
   listCells(): CellSnapshot[];
@@ -135,8 +137,15 @@ export function createEditorAPI(
   model: NotebookModel,
   getSessionContext?: () => SessionContextManager | null,
   stalenessTracker?: StalenessTracker | null,
+  getReadOnly?: () => boolean,
 ): JupyterEditorAPI {
   let inFlight: InFlightExecution[] = [];
+
+  // `NotebookModel.readOnly` only configures the editor widgets; writes through
+  // `sharedModel` and kernel execution ignore it. Guard here so the AI surface
+  // cannot mutate a notebook the host opened read-only. Backstop for the checks
+  // in aiTools.ts, which report a reason instead of silently no-opping.
+  const readOnly = (): boolean => getReadOnly?.() === true;
 
   const findIndexById = (id: string): number => {
     for (let i = 0; i < model.cells.length; i++) {
@@ -229,7 +238,7 @@ export function createEditorAPI(
     return winner;
   };
 
-  const runCellAtIndex = async (
+  const runCellAtIndexUnguarded = async (
     index: number,
     opts?: RunOptions,
   ): Promise<RunCellResult | null> => {
@@ -265,6 +274,15 @@ export function createEditorAPI(
     };
   };
 
+  /** Executing writes outputs and execution counts back into the model. */
+  const runCellAtIndex = async (
+    index: number,
+    opts?: RunOptions,
+  ): Promise<RunCellResult | null> => {
+    if (readOnly()) return null;
+    return runCellAtIndexUnguarded(index, opts);
+  };
+
   const clearCodeCell = (cell: ICellModel): boolean => {
     if (cell.type !== 'code') return false;
     const codeCell = cell as ICodeCellModel;
@@ -274,6 +292,8 @@ export function createEditorAPI(
   };
 
   return {
+    isReadOnly: readOnly,
+
     getCellById(id) {
       const idx = findIndexById(id);
       if (idx < 0) return null;
@@ -317,6 +337,13 @@ export function createEditorAPI(
     },
 
     async runAll(opts) {
+      if (readOnly()) {
+        return {
+          ran: false,
+          kernelStatus: getSession()?.status ?? 'no-kernel',
+          cells: allOutputSnapshots(),
+        };
+      }
       const sc = getSession();
       if (!sc) {
         return { ran: false, kernelStatus: 'no-kernel', cells: allOutputSnapshots() };
@@ -362,6 +389,7 @@ export function createEditorAPI(
     async restartKernel(opts) {
       const sc = getSession();
       if (!sc) return { restarted: false, kernelStatus: 'no-kernel' };
+      if (readOnly()) return { restarted: false, kernelStatus: sc.status };
       const restarted = await sc.restart();
       if (!restarted || !opts?.runAll) {
         return { restarted, kernelStatus: sc.status };
@@ -386,6 +414,7 @@ export function createEditorAPI(
     },
 
     updateCellSource(id, source) {
+      if (readOnly()) return false;
       const idx = findIndexById(id);
       if (idx < 0) return false;
       model.cells.get(idx).sharedModel.setSource(source);
@@ -393,6 +422,7 @@ export function createEditorAPI(
     },
 
     insertCell({ cellType, source, afterId, beforeId, position }) {
+      if (readOnly()) return null;
       let insertAt: number;
       if (afterId != null && afterId.length > 0) {
         const idx = findIndexById(afterId);
@@ -425,6 +455,7 @@ export function createEditorAPI(
     },
 
     deleteCell(id) {
+      if (readOnly()) return false;
       const idx = findIndexById(id);
       if (idx < 0) return false;
       model.sharedModel.deleteCell(idx);
@@ -432,6 +463,7 @@ export function createEditorAPI(
     },
 
     moveCell(id, toIndex) {
+      if (readOnly()) return null;
       const fromIndex = findIndexById(id);
       if (fromIndex < 0) return null;
       const clamped = Math.max(0, Math.min(toIndex, model.cells.length - 1));
@@ -442,6 +474,7 @@ export function createEditorAPI(
     },
 
     setCellType(id, cellType) {
+      if (readOnly()) return null;
       const idx = findIndexById(id);
       if (idx < 0) return null;
       if (model.cells.get(idx).type === cellType) {
@@ -456,6 +489,7 @@ export function createEditorAPI(
     },
 
     clearOutputs(id) {
+      if (readOnly()) return 0;
       if (id != null) {
         const idx = findIndexById(id);
         if (idx < 0) return 0;

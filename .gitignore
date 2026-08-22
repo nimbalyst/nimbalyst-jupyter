@@ -9,3 +9,5 @@ npm-debug.log*
 *.tsbuildinfo
 nimbalyst-local/
 e2e/.tmp/
+temptests/
+.claude/plugins/.nimbalyst-generated/

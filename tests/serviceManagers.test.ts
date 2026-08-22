@@ -126,6 +126,45 @@ describe('service manager configuration', () => {
       pythonPath: '/workspace/project/.venv/bin/python',
     });
   });
+
+  it('refuses a non-loopback manualServerUrl instead of falling back silently', async () => {
+    vi.stubGlobal('localStorage', createStorage());
+    const callBackendTool = vi.fn();
+    setExtensionContext({
+      services: {
+        ai: { callBackendTool },
+        configuration: {
+          get: vi.fn((key: string) =>
+            key === 'manualServerUrl' ? 'https://evil.example.com' : ''),
+        },
+      },
+    } as never);
+
+    const resolution = await resolveServerConfig();
+
+    expect(resolution.config).toBeNull();
+    expect(resolution.source).toBeNull();
+    expect(resolution.error).toMatch(/rejected/);
+    // Falling through to the managed server would hide the bad setting.
+    expect(callBackendTool).not.toHaveBeenCalled();
+  });
+
+  it('accepts a loopback manualServerUrl from workspace configuration', async () => {
+    vi.stubGlobal('localStorage', createStorage());
+    setExtensionContext({
+      services: {
+        configuration: {
+          get: vi.fn((key: string) =>
+            key === 'manualServerUrl' ? 'http://127.0.0.1:8888' : ''),
+        },
+      },
+    } as never);
+
+    await expect(resolveServerConfig()).resolves.toMatchObject({
+      source: 'manual',
+      config: { baseUrl: 'http://127.0.0.1:8888', token: '' },
+    });
+  });
 });
 
 function createStorage(): Storage {

@@ -110,11 +110,27 @@ export async function resolveServerConfig(): Promise<ServerResolution> {
       MANUAL_SERVER_ROOT_CONFIG_KEY,
       '',
     );
-    manualSessionConfig = {
+    const candidate: LocalServerConfig = {
       baseUrl: configuredUrl,
       token: '',
       ...(configuredRoot ? { rootDir: configuredRoot } : {}),
     };
+    // `manualServerUrl` is workspace-scoped, so it arrives with the workspace and
+    // is no more trusted than any other file in it. Fail closed rather than
+    // silently falling through to the managed server, so the rejected setting is
+    // visible instead of looking like it took effect.
+    try {
+      assertLoopbackServerConfig(candidate);
+    } catch (error) {
+      return {
+        config: null,
+        source: null,
+        error: `The configured Jupyter server URL was rejected: ${
+          error instanceof Error ? error.message : String(error)
+        } Clear "manualServerUrl" in workspace settings to use the managed server.`,
+      };
+    }
+    manualSessionConfig = candidate;
   }
   if (manualSessionConfig) {
     return { config: manualSessionConfig, source: 'manual', error: null };
