@@ -71,6 +71,59 @@ del __nimbalyst_list_variables
 `.trim();
 }
 
+/**
+ * Reports which Python is actually behind the kernel. Agents guess this
+ * constantly and get it wrong — a notebook can be running a different
+ * interpreter than the workspace `.venv` the agent just inspected on
+ * disk. `packages` answers "is X importable, and at what version" in the
+ * same round trip, which is the other half of the same question.
+ */
+export function buildRuntimeInfoSnippet(packages: string[] = []): string {
+  for (const name of packages) {
+    if (!isValidVariablePath(name)) {
+      throw new Error(
+        `Invalid package name "${name}". Use an importable module name such as "pandas" or "sklearn.tree".`,
+      );
+    }
+  }
+  const packageList = JSON.stringify(packages.slice(0, 20));
+  return `
+def __nimbalyst_runtime_info():
+    import importlib, json, os, platform, sys
+    info = {
+        'executable': sys.executable,
+        'pythonVersion': platform.python_version(),
+        'implementation': platform.python_implementation(),
+        'platform': platform.platform(),
+        'cwd': os.getcwd(),
+        'prefix': sys.prefix,
+        'inVirtualEnv': sys.prefix != getattr(sys, 'base_prefix', sys.prefix),
+        'virtualEnv': os.environ.get('VIRTUAL_ENV'),
+        'condaEnv': os.environ.get('CONDA_DEFAULT_ENV'),
+    }
+    packages = {}
+    for name in ${packageList}:
+        try:
+            module = importlib.import_module(name)
+        except Exception as exc:
+            packages[name] = {'importable': False, 'error': type(exc).__name__ + ': ' + str(exc)}
+            continue
+        entry = {'importable': True}
+        version = getattr(module, '__version__', None)
+        if version is not None:
+            entry['version'] = str(version)
+        location = getattr(module, '__file__', None)
+        if location is not None:
+            entry['path'] = str(location)
+        packages[name] = entry
+    if packages:
+        info['packages'] = packages
+    print(json.dumps(info))
+__nimbalyst_runtime_info()
+del __nimbalyst_runtime_info
+`.trim();
+}
+
 export function buildInspectVariableSnippet(name: string, maxChars = 4000): string {
   if (!isValidVariablePath(name)) {
     throw new Error(

@@ -69,6 +69,7 @@
     ],
     "aiTools": [
       "jupyter.get_notebook_projection",
+      "jupyter.create_notebook",
       "jupyter.list_cells",
       "jupyter.get_cell_output",
       "jupyter.run_cell",
@@ -77,6 +78,7 @@
       "jupyter.get_execution_status",
       "jupyter.interrupt",
       "jupyter.restart_kernel",
+      "jupyter.get_runtime_info",
       "jupyter.list_variables",
       "jupyter.inspect_variable",
       "jupyter.preview_dataframe",

@@ -9,18 +9,42 @@ function tool(name: string) {
   return found;
 }
 
-function context(editorAPI: JupyterEditorAPI, callBackendTool?: (name: string, params: Record<string, unknown>) => Promise<unknown>) {
+function context(
+  editorAPI: JupyterEditorAPI,
+  callBackendTool?: (name: string, params: Record<string, unknown>) => Promise<unknown>,
+  filesystem?: Record<string, unknown>,
+) {
   return {
     editorAPI,
     extensionContext: {
       services: {
-        filesystem: {
+        filesystem: filesystem ?? {
           readFile: vi.fn(),
         },
         ai: callBackendTool ? { callBackendTool } : undefined,
       },
     },
   } as any;
+}
+
+/** Tool results type `data` as unknown; tests assert on concrete shapes. */
+function data(result: { data?: unknown }): any {
+  return result.data;
+}
+
+/** Shaped like a real IPython traceback: ANSI colouring plus source lines. */
+function errorOutput(ename: string, evalue: string) {
+  return {
+    output_type: 'error' as const,
+    ename,
+    evalue,
+    traceback: [
+      '\u001b[31m---------------------------------------------------------------------------\u001b[39m',
+      '\u001b[36mCell\u001b[39m \u001b[32mIn[2]\u001b[39m, line 1',
+      '----> 1 first = values[0]',
+      `\u001b[31m${ename}\u001b[39m: ${evalue}`,
+    ],
+  };
 }
 
 function mockApi(overrides: Partial<JupyterEditorAPI> = {}): JupyterEditorAPI {
@@ -47,6 +71,7 @@ function mockApi(overrides: Partial<JupyterEditorAPI> = {}): JupyterEditorAPI {
     getCellOutputById: vi.fn((id: string) => ({
       id,
       index: 0,
+      cellType: 'code' as const,
       executionCount: 1,
       outputs: [
         {
@@ -61,6 +86,7 @@ function mockApi(overrides: Partial<JupyterEditorAPI> = {}): JupyterEditorAPI {
     runCellById: vi.fn(async (id: string) => ({
       id,
       index: 0,
+      cellType: 'code' as const,
       executionCount: 2,
       outputs: [
         {
@@ -80,6 +106,7 @@ function mockApi(overrides: Partial<JupyterEditorAPI> = {}): JupyterEditorAPI {
         {
           id: 'cell-1',
           index: 0,
+          cellType: 'code' as const,
           executionCount: 2,
           outputs: [
             {
@@ -189,6 +216,7 @@ describe('jupyter AI tools', () => {
       getCellOutputById: vi.fn(() => ({
         id: 'cell-1',
         index: 0,
+        cellType: 'code' as const,
         executionCount: 1,
         outputs: [
           {
@@ -240,6 +268,7 @@ describe('jupyter AI tools', () => {
       runCellById: vi.fn(async () => ({
         id: 'cell-1',
         index: 0,
+        cellType: 'code' as const,
         executionCount: null,
         outputs: [],
         ran: false,
@@ -272,6 +301,301 @@ describe('jupyter AI tools', () => {
       kernelStatus: 'busy',
       executions: [{ cellId: 'cell-1', done: false }],
     });
+  });
+
+  it('summarizes run_all by default and expands the first error', async () => {
+    const api = mockApi({
+      runAll: vi.fn(async () => ({
+        ran: true,
+        kernelStatus: 'idle' as const,
+        cells: [
+          {
+            id: 'cell-1',
+            index: 0,
+            cellType: 'code' as const,
+            executionCount: 1,
+            outputs: [{ output_type: 'stream' as const, name: 'stdout', text: 'x'.repeat(50_000) }],
+          },
+          {
+            id: 'cell-2',
+            index: 1,
+            cellType: 'code' as const,
+            executionCount: 2,
+            outputs: [errorOutput('ValueError', 'bad input')],
+          },
+          {
+            id: 'cell-3',
+            index: 2,
+            cellType: 'code' as const,
+            executionCount: 3,
+            outputs: [errorOutput('NameError', 'cascade')],
+          },
+        ],
+      })),
+    });
+
+    const result = await tool('jupyter.run_all').handler({}, context(api));
+
+    expect(result.success).toBe(true);
+    expect(data(result).errorCount).toBe(2);
+    // The summary must not carry the 50k-char stdout payload.
+    expect(data(result).cells).toEqual([
+      { id: 'cell-1', index: 0, executionCount: 1, status: 'ok', outputCount: 1 },
+      {
+        id: 'cell-2',
+        index: 1,
+        executionCount: 2,
+        status: 'error',
+        outputCount: 1,
+        error: { ename: 'ValueError', evalue: 'bad input' },
+      },
+      {
+        id: 'cell-3',
+        index: 2,
+        executionCount: 3,
+        status: 'error',
+        outputCount: 1,
+        error: { ename: 'NameError', evalue: 'cascade' },
+      },
+    ]);
+    expect(data(result).firstError).toMatchObject({
+      cellId: 'cell-2',
+      index: 1,
+      ename: 'ValueError',
+    });
+    expect(data(result).firstError.traceback).toContain('ValueError: bad input');
+    // ANSI colouring from IPython is stripped; bracketed source survives.
+    expect(data(result).firstError.traceback).not.toMatch(/\u001b\[/);
+    expect(data(result).firstError.traceback).toContain('values[0]');
+    expect(JSON.stringify(result.data)).not.toContain('x'.repeat(1000));
+  });
+
+  it('reports a raising cell as a stopped run, not as a missing kernel', async () => {
+    // NotebookActions.runAll resolves false when a cell raises. Treating that
+    // as "no kernel attached" would send an agent to fix the runtime.
+    const api = mockApi({
+      runAll: vi.fn(async () => ({
+        ran: false,
+        kernelStatus: 'idle' as const,
+        cells: [
+          {
+            id: 'cell-1',
+            index: 0,
+            cellType: 'code' as const,
+            executionCount: 1,
+            outputs: [errorOutput('ValueError', 'deliberate failure')],
+          },
+          {
+            id: 'cell-2',
+            index: 1,
+            cellType: 'code' as const,
+            executionCount: null,
+            outputs: [],
+          },
+          {
+            id: 'cell-3',
+            index: 2,
+            cellType: 'markdown' as const,
+            executionCount: null,
+            outputs: [],
+          },
+        ],
+      })),
+    });
+
+    const result = await tool('jupyter.run_all').handler({}, context(api));
+
+    expect(result.success).toBe(true);
+    expect(result.error).toBeUndefined();
+    expect(data(result)).toMatchObject({
+      completed: false,
+      errorCount: 1,
+      // The markdown cell is not counted as failing to run.
+      notRunCount: 1,
+      firstError: { cellId: 'cell-1', ename: 'ValueError' },
+    });
+    expect(result.message).toContain('did not run');
+  });
+
+  it('treats an executed-nothing run as a failure even when ran is true', async () => {
+    // A notebook whose kernel has not attached yet can resolve ran=true
+    // having executed nothing; reporting that as success hides the problem.
+    const api = mockApi({
+      runAll: vi.fn(async () => ({
+        ran: true,
+        kernelStatus: 'no-kernel' as const,
+        cells: [
+          {
+            id: 'cell-1',
+            index: 0,
+            cellType: 'code' as const,
+            executionCount: null,
+            outputs: [],
+          },
+        ],
+      })),
+    });
+
+    const result = await tool('jupyter.run_all').handler({}, context(api));
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('No kernel is attached');
+    expect(data(result).notRunCount).toBe(1);
+  });
+
+  it('reports a markdown-only notebook as a clean run', async () => {
+    const api = mockApi({
+      runAll: vi.fn(async () => ({
+        ran: true,
+        kernelStatus: 'idle' as const,
+        cells: [
+          {
+            id: 'cell-1',
+            index: 0,
+            cellType: 'markdown' as const,
+            executionCount: null,
+            outputs: [],
+          },
+        ],
+      })),
+    });
+
+    const result = await tool('jupyter.run_all').handler({}, context(api));
+
+    expect(result.success).toBe(true);
+    expect(data(result)).toMatchObject({ completed: true, errorCount: 0, notRunCount: 0 });
+  });
+
+  it('still reports a genuine no-kernel run_all as a failure', async () => {
+    const api = mockApi({
+      runAll: vi.fn(async () => ({
+        ran: false,
+        kernelStatus: 'no-kernel' as const,
+        cells: [
+          {
+            id: 'cell-1',
+            index: 0,
+            cellType: 'code' as const,
+            executionCount: null,
+            outputs: [],
+          },
+        ],
+      })),
+    });
+
+    const result = await tool('jupyter.run_all').handler({}, context(api));
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('kernel is attached');
+  });
+
+  it('returns full run_all outputs when includeOutputs is set', async () => {
+    const api = mockApi();
+    const result = await tool('jupyter.run_all').handler(
+      { includeOutputs: true },
+      context(api),
+    );
+
+    expect(result.success).toBe(true);
+    expect(data(result).cells).toEqual([
+      {
+        id: 'cell-1',
+        index: 0,
+        executionCount: 2,
+        outputs: [{ outputType: 'stream', name: 'stdout', text: 'ran\n' }],
+      },
+    ]);
+    expect(data(result).errorCount).toBe(0);
+  });
+
+  it('reports kernel runtime identity and rejects unsafe package names', async () => {
+    const api = mockApi({
+      executeCode: vi.fn(async () => ({
+        status: 'ok' as const,
+        kernelStatus: 'idle' as const,
+        outputs: [
+          {
+            output_type: 'stream' as const,
+            name: 'stdout' as const,
+            text: '{"executable": "/venv/bin/python", "pythonVersion": "3.11.8"}\n',
+          },
+        ],
+      })),
+    });
+
+    const result = await tool('jupyter.get_runtime_info').handler(
+      { packages: ['pandas'] },
+      context(api),
+    );
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ executable: '/venv/bin/python' });
+    expect((api.executeCode as any).mock.calls[0][0]).toContain('"pandas"');
+
+    const rejected = await tool('jupyter.get_runtime_info').handler(
+      { packages: ['os; import subprocess'] },
+      context(mockApi()),
+    );
+    expect(rejected.success).toBe(false);
+    expect(rejected.error).toContain('Invalid package name');
+  });
+
+  it('creates a notebook on disk and refuses to clobber an existing file', async () => {
+    const writeFile = vi.fn(async (_path: string, _content: string | Uint8Array) => undefined);
+    const filesystem = {
+      readFile: vi.fn(),
+      writeFile,
+      fileExists: vi.fn(async () => false),
+    };
+
+    const result = await tool('jupyter.create_notebook').handler(
+      {
+        filePath: '/tmp/analysis.ipynb',
+        cells: [
+          { cellType: 'markdown', source: '# Analysis' },
+          { cellType: 'code', source: 'import pandas as pd' },
+        ],
+      },
+      context(mockApi(), undefined, filesystem),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ filePath: '/tmp/analysis.ipynb', cellCount: 2, kernelName: 'python3' });
+
+    const written = JSON.parse(String(writeFile.mock.calls[0][1]));
+    expect(written.nbformat_minor).toBe(5);
+    expect(written.cells.map((cell: { cell_type: string }) => cell.cell_type)).toEqual([
+      'markdown',
+      'code',
+    ]);
+    expect(written.cells.every((cell: { id?: string }) => typeof cell.id === 'string')).toBe(true);
+
+    const existing = { ...filesystem, fileExists: vi.fn(async () => true), writeFile: vi.fn() };
+    const refused = await tool('jupyter.create_notebook').handler(
+      { filePath: '/tmp/analysis.ipynb' },
+      context(mockApi(), undefined, existing),
+    );
+    expect(refused.success).toBe(false);
+    expect(refused.error).toContain('already exists');
+    expect(existing.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('rejects create_notebook paths and cells that are not notebooks', async () => {
+    const filesystem = { readFile: vi.fn(), writeFile: vi.fn(), fileExists: vi.fn(async () => false) };
+
+    const badPath = await tool('jupyter.create_notebook').handler(
+      { filePath: '/tmp/analysis.py' },
+      context(mockApi(), undefined, filesystem),
+    );
+    expect(badPath.success).toBe(false);
+    expect(badPath.error).toContain('.ipynb');
+
+    const badCell = await tool('jupyter.create_notebook').handler(
+      { filePath: '/tmp/analysis.ipynb', cells: [{ cellType: 'sql', source: 'select 1' }] },
+      context(mockApi(), undefined, filesystem),
+    );
+    expect(badCell.success).toBe(false);
+    expect(badCell.error).toContain('cells[0].cellType');
+    expect(filesystem.writeFile).not.toHaveBeenCalled();
   });
 
   it('parses introspection JSON from list_variables', async () => {

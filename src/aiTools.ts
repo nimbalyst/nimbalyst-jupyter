@@ -6,10 +6,13 @@ import type {
     JupyterEditorAPI,
 } from './editorApi';
 import { buildNotebookProjection } from './services/notebookProjection';
+import { serializeNotebook } from './services/notebookSerializer';
+import { buildNewNotebook, type NewNotebookCell } from './services/notebookTemplate';
 import {
     buildInspectVariableSnippet,
     buildListVariablesSnippet,
     buildPreviewDataFrameSnippet,
+    buildRuntimeInfoSnippet,
     isValidVariablePath,
     parseIntrospectionResult,
 } from './services/kernelIntrospection';
@@ -107,6 +110,115 @@ export const aiTools: ExtensionAITool[] = [
                     sourceBytes: projection.sourceBytes,
                     projectedBytes: projection.projectedBytes,
                     outputsRedacted: projection.outputsRedacted,
+                },
+            };
+        },
+    },
+    {
+        name: 'jupyter.create_notebook',
+        access: { kind: 'filesystem' } as const,
+        scope: 'global',
+        description:
+            'Create a new `.ipynb` notebook on disk with nbformat 4.5 structure, kernelspec metadata, and optional starting cells. Use this to begin an analysis rather than hand-writing notebook JSON with a generic file-write tool -- that loses cell IDs and kernelspec metadata and often produces a file the editor refuses to open. Refuses to overwrite an existing file unless overwrite=true.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                filePath: {
+                    type: 'string',
+                    description:
+                        'Absolute path for the new `.ipynb` file, or a path relative to the workspace root.',
+                },
+                cells: {
+                    type: 'array',
+                    description:
+                        'Starting cells in order. Defaults to a single empty code cell.',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            cellType: {
+                                type: 'string',
+                                enum: ['code', 'markdown', 'raw'],
+                                description: 'Cell type.',
+                            },
+                            source: {
+                                type: 'string',
+                                description: 'Cell source text.',
+                            },
+                        },
+                        required: ['cellType', 'source'],
+                    },
+                },
+                kernelName: {
+                    type: 'string',
+                    description:
+                        'kernelspec name written to metadata. Default `python3`. Use jupyter.list_kernels to see what the server offers.',
+                },
+                kernelDisplayName: {
+                    type: 'string',
+                    description: 'kernelspec display name. Defaults from kernelName.',
+                },
+                language: {
+                    type: 'string',
+                    description: 'Kernel language. Default `python`.',
+                },
+                overwrite: {
+                    type: 'boolean',
+                    description: 'Replace an existing file at this path. Default false.',
+                },
+            },
+            required: ['filePath'],
+        },
+        handler: async (params, context) => {
+            const rawPath = typeof params.filePath === 'string' ? params.filePath : '';
+            if (rawPath.length === 0) {
+                return {
+                    success: false,
+                    error: '`filePath` is required and must be a non-empty string.',
+                };
+            }
+            if (!/\.ipynb$/i.test(rawPath)) {
+                return {
+                    success: false,
+                    error: `\`filePath\` must end in .ipynb (got "${rawPath}").`,
+                };
+            }
+
+            const cells = parseNewNotebookCells(params.cells);
+            if ('error' in cells) return { success: false, error: cells.error };
+
+            const filesystem = context.extensionContext.services.filesystem;
+            if (params.overwrite !== true && (await notebookExists(filesystem, rawPath))) {
+                return {
+                    success: false,
+                    error: `A file already exists at "${rawPath}". Pass overwrite=true to replace it, or choose another path.`,
+                };
+            }
+
+            const notebook = buildNewNotebook({
+                cells: cells.value,
+                kernelName: readOptionalString(params.kernelName) ?? undefined,
+                kernelDisplayName: readOptionalString(params.kernelDisplayName) ?? undefined,
+                language: readOptionalString(params.language) ?? undefined,
+            });
+
+            try {
+                await filesystem.writeFile(rawPath, serializeNotebook(notebook));
+            } catch (error) {
+                return {
+                    success: false,
+                    error: `Failed to write notebook at "${rawPath}": ${error instanceof Error ? error.message : String(error)}`,
+                };
+            }
+
+            const kernelspec = notebook.metadata.kernelspec as { name?: string } | undefined;
+            return {
+                success: true,
+                message: `Created notebook "${rawPath}" with ${notebook.cells.length} cell(s). Open it to run cells; the cell tools work once it is mounted.`,
+                data: {
+                    filePath: rawPath,
+                    cellCount: notebook.cells.length,
+                    kernelName: kernelspec?.name ?? null,
+                    cellIds: notebook.cells.map((cell) => cell.id),
                 },
             };
         },
@@ -243,11 +355,16 @@ export const aiTools: ExtensionAITool[] = [
         scope: 'global',
         editorFilePatterns: IPYNB_FILE_PATTERN,
         description:
-            'Run every notebook cell through the live Jupyter kernel and return compact output snapshots for code cells. Waits up to timeoutMs (default 60000); on timeout execution continues -- poll with jupyter.get_execution_status.',
+            'Run every notebook cell through the live Jupyter kernel. Returns a per-cell status summary by default (execution count, ok/error, and the first failure with its traceback) rather than every output, so a whole-notebook run stays cheap to read. Pass includeOutputs=true for full output snapshots, or read one cell with jupyter.get_cell_output. Waits up to timeoutMs (default 60000); on timeout execution continues -- poll with jupyter.get_execution_status.',
         inputSchema: {
             type: 'object',
             properties: {
                 filePath: FILE_PATH_PROPERTY,
+                includeOutputs: {
+                    type: 'boolean',
+                    description:
+                        'Return full output snapshots for every cell instead of the status summary. Default false; this can be very large.',
+                },
                 maxChars: MAX_CHARS_PROPERTY,
                 timeoutMs: TIMEOUT_PROPERTY,
             },
@@ -255,27 +372,70 @@ export const aiTools: ExtensionAITool[] = [
         handler: async (params, context) => {
             const api = requireWritableJupyterEditorAPI(context.editorAPI);
             if (!api.ok) return api.error;
-            const result = await api.value.runAll({
-                timeoutMs: getTimeout(params.timeoutMs, DEFAULT_RUN_TIMEOUT_MS),
-            });
+            const timeoutMs = getTimeout(params.timeoutMs, DEFAULT_RUN_TIMEOUT_MS);
+            const result = await api.value.runAll({ timeoutMs });
             const maxChars = getMaxChars(params.maxChars);
-            const cells = result.cells
-                .filter((cell) => cell.outputs.length > 0 || cell.executionCount != null)
-                .map((cell) => compactOutputSnapshot(cell, maxChars));
+            const executed = result.cells.filter(
+                (cell) => cell.outputs.length > 0 || cell.executionCount != null,
+            );
+            // Full snapshots of a 40-cell notebook blow an agent's context on
+            // the one call it makes most, so summarize unless asked otherwise.
+            const cells =
+                params.includeOutputs === true
+                    ? executed.map((cell) => compactOutputSnapshot(cell, maxChars))
+                    : executed.map(summarizeRunCell);
+            const failures = executed.map(findCellError).filter((entry) => entry != null);
+            const firstError = firstErrorDetail(executed, maxChars);
+
             if (result.timedOut) {
                 return {
                     success: true,
-                    message: `Notebook is still running after ${getTimeout(params.timeoutMs, DEFAULT_RUN_TIMEOUT_MS)}ms. Partial outputs included; poll jupyter.get_execution_status or call jupyter.interrupt.`,
-                    data: { kernelStatus: result.kernelStatus, stillRunning: true, cells },
+                    message: `Notebook is still running after ${timeoutMs}ms. Partial results included; poll jupyter.get_execution_status or call jupyter.interrupt.`,
+                    data: {
+                        kernelStatus: result.kernelStatus,
+                        stillRunning: true,
+                        errorCount: failures.length,
+                        ...(firstError ? { firstError } : {}),
+                        cells,
+                    },
                 };
             }
+            // `NotebookActions.runAll` resolves false when a cell raises, so
+            // `ran === false` alone does NOT mean the notebook never started.
+            // Reporting a cell error as "no kernel attached" would send the
+            // agent to fix the runtime instead of the code.
+            const codeCells = result.cells.filter((cell) => cell.cellType === 'code');
+            const notRun = codeCells.filter(
+                (cell) => cell.executionCount == null && cell.outputs.length === 0,
+            ).length;
+            // `ran` can come back true against a notebook whose kernel has not
+            // attached yet, having executed nothing. Trust the cells, not the
+            // flag: a notebook with code cells and no execution did not run.
+            if (executed.length === 0 && codeCells.length > 0) {
+                return {
+                    success: false,
+                    message: `No cells executed; kernel status ${result.kernelStatus}.`,
+                    data: { kernelStatus: result.kernelStatus, notRunCount: notRun, cells },
+                    error:
+                        result.kernelStatus === 'no-kernel'
+                            ? 'No kernel is attached, so nothing ran. A freshly opened notebook may still be connecting -- check jupyter.get_runtime_info, then retry.'
+                            : `Nothing ran and the kernel is "${result.kernelStatus}". Wait for it to reach idle, or check jupyter.get_execution_status for an in-flight run.`,
+                };
+            }
+            const stoppedEarly = !result.ran;
             return {
-                success: result.ran,
-                message: result.ran
-                    ? `Ran ${result.cells.length} cell(s); kernel status ${result.kernelStatus}.`
-                    : `Notebook was not run; kernel status ${result.kernelStatus}.`,
-                data: { kernelStatus: result.kernelStatus, cells },
-                error: result.ran || result.timedOut ? undefined : 'Notebook did not run. Check that a kernel is attached and idle.',
+                success: true,
+                message: stoppedEarly
+                    ? `Ran ${executed.length} cell(s) and stopped${firstError ? ` at cell ${firstError.index} (${firstError.ename})` : ''}; ${notRun} code cell(s) did not run. Kernel status ${result.kernelStatus}.`
+                    : `Ran ${executed.length} cell(s), ${failures.length} with errors; kernel status ${result.kernelStatus}.`,
+                data: {
+                    kernelStatus: result.kernelStatus,
+                    completed: !stoppedEarly,
+                    errorCount: failures.length,
+                    notRunCount: notRun,
+                    ...(firstError ? { firstError } : {}),
+                    cells,
+                },
             };
         },
     },
@@ -406,6 +566,47 @@ export const aiTools: ExtensionAITool[] = [
                 data: result,
                 error: result.restarted ? undefined : 'Kernel restart failed or no kernel is attached.',
             };
+        },
+    },
+    {
+        name: 'jupyter.get_runtime_info',
+        access: { kind: 'editor-read' } as const,
+        scope: 'global',
+        editorFilePatterns: IPYNB_FILE_PATTERN,
+        description:
+            'Report which Python is actually behind this notebook: interpreter path, version, virtualenv/conda environment, and working directory. Pass `packages` to also check whether specific modules import and at what version. Check this before assuming an environment -- the kernel is often not the interpreter the workspace files suggest, and a failing import is usually the wrong environment rather than a missing install.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                filePath: FILE_PATH_PROPERTY,
+                packages: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description:
+                        'Importable module names to check (e.g. ["pandas", "sklearn"]). Up to 20.',
+                },
+                timeoutMs: TIMEOUT_PROPERTY,
+            },
+        },
+        handler: async (params, context) => {
+            const api = requireJupyterEditorAPI(context.editorAPI);
+            if (!api.ok) return api.error;
+            const packages = Array.isArray(params.packages)
+                ? params.packages.filter((entry): entry is string => typeof entry === 'string')
+                : [];
+            const invalid = packages.find((name) => !isValidVariablePath(name));
+            if (invalid != null) {
+                return {
+                    success: false,
+                    error: `Invalid package name "${invalid}". Use an importable module name such as "pandas" or "sklearn.tree".`,
+                };
+            }
+            return runIntrospection(
+                api.value,
+                buildRuntimeInfoSnippet(packages),
+                params,
+                'Reported kernel runtime identity.',
+            );
         },
     },
     {
@@ -954,6 +1155,55 @@ function missingCellResult(params: Record<string, unknown>) {
     };
 }
 
+/** Validate the `cells` argument of `jupyter.create_notebook`. */
+function parseNewNotebookCells(
+    value: unknown,
+): { value: NewNotebookCell[] } | { error: string } {
+    if (value == null) return { value: [] };
+    if (!Array.isArray(value)) {
+        return { error: '`cells` must be an array of { cellType, source } objects.' };
+    }
+    const cells: NewNotebookCell[] = [];
+    for (let i = 0; i < value.length; i++) {
+        const entry = value[i] as { cellType?: unknown; source?: unknown } | null;
+        const cellType = normalizeCellType(entry?.cellType);
+        if (!cellType) {
+            return {
+                error: `cells[${i}].cellType must be "code", "markdown", or "raw".`,
+            };
+        }
+        if (typeof entry?.source !== 'string') {
+            return { error: `cells[${i}].source must be a string.` };
+        }
+        cells.push({ cellType, source: entry.source });
+    }
+    return { value: cells };
+}
+
+/**
+ * Existence check for the overwrite guard. Older hosts may not expose
+ * `fileExists`, so fall back to a read: a successful read means a file is
+ * there, and we fail closed rather than clobbering it.
+ */
+async function notebookExists(
+    filesystem: { fileExists?: (path: string) => Promise<boolean>; readFile: (path: string) => Promise<string> },
+    path: string,
+): Promise<boolean> {
+    if (typeof filesystem.fileExists === 'function') {
+        try {
+            return await filesystem.fileExists(path);
+        } catch {
+            // Fall through to the read probe.
+        }
+    }
+    try {
+        await filesystem.readFile(path);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 function normalizeCellType(value: unknown): CellType | null {
     return value === 'code' || value === 'markdown' || value === 'raw' ? value : null;
 }
@@ -970,6 +1220,73 @@ function getTimeout(value: unknown, fallback: number): number {
 function getMaxChars(value: unknown): number {
     if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_OUTPUT_CHAR_LIMIT;
     return Math.max(100, Math.min(Math.floor(value), MAX_OUTPUT_CHAR_LIMIT));
+}
+
+interface CellErrorRef {
+    cellId: string;
+    index: number;
+    ename: string;
+    evalue: string;
+}
+
+/** Traceback ceiling for the one error run_all expands inline. */
+const FIRST_ERROR_TRACEBACK_CHARS = 3000;
+
+function findCellError(cell: CellOutputSnapshot): CellErrorRef | null {
+    const output = cell.outputs.find((entry) => entry.output_type === 'error');
+    if (!output) return null;
+    const error = output as nbformat.IError;
+    return {
+        cellId: cell.id,
+        index: cell.index,
+        ename: String(error.ename ?? 'Error'),
+        evalue: String(error.evalue ?? ''),
+    };
+}
+
+/**
+ * The first failure is the one an agent acts on, so expand it here and
+ * save the follow-up `get_cell_output` round trip. Later failures are
+ * usually cascades of this one and stay summarized.
+ */
+function firstErrorDetail(cells: CellOutputSnapshot[], maxChars: number) {
+    for (const cell of cells) {
+        const error = findCellError(cell);
+        if (!error) continue;
+        const output = cell.outputs.find((entry) => entry.output_type === 'error') as nbformat.IError;
+        const traceback = Array.isArray(output.traceback) ? output.traceback.join('\n') : '';
+        return {
+            ...error,
+            traceback: truncateString(
+                stripAnsi(traceback),
+                Math.min(maxChars, FIRST_ERROR_TRACEBACK_CHARS),
+            ),
+        };
+    }
+    return null;
+}
+
+/**
+ * IPython colorizes tracebacks. The escape sequences are pure token cost
+ * for a model, so drop them from the traceback run_all expands inline.
+ * `get_cell_output` still returns outputs verbatim.
+ */
+function stripAnsi(value: string): string {
+    // The \u001b is required: without it this would eat list literals like
+    // `[abc]` out of the traceback's source lines.
+    return value.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
+}
+
+function summarizeRunCell(cell: CellOutputSnapshot) {
+    const error = findCellError(cell);
+    return {
+        id: cell.id,
+        index: cell.index,
+        executionCount: cell.executionCount,
+        status: error ? ('error' as const) : ('ok' as const),
+        outputCount: cell.outputs.length,
+        ...(error ? { error: { ename: error.ename, evalue: error.evalue } } : {}),
+    };
 }
 
 function compactOutputSnapshot(snapshot: CellOutputSnapshot, maxChars: number) {

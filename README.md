@@ -13,8 +13,9 @@ real execution through a local `jupyter_server` managed by the extension backend
 - Core Jupyter MIME rendering (HTML, images, LaTeX, errors) and core ipywidgets controls
 - Kernel-backed Tab completion and Shift+Tab inspection
 - `nbformat` round-trip that preserves cell IDs and metadata
-- AI tools for compact notebook projection, live cell listing, output inspection,
-  cell edits, insertion, and kernel-backed execution
+- AI tools for compact notebook projection, notebook creation, live cell listing,
+  output inspection, cell edits, insertion, kernel runtime identity, and
+  kernel-backed execution
 - Backend MCP tools for starting, stopping, checking, and listing kernels from the
   managed local Jupyter server
 

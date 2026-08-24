@@ -62,15 +62,17 @@ test('registers every jupyter tool with the host', async ({ page }) => {
   const tools = await listExtensionTools(page);
   const jupyterTools = tools.map((tool) => tool.name).filter((name) => name.startsWith('jupyter.'));
 
-  // The manifest contributes 18 renderer tools; a drop means a handler failed
+  // The manifest contributes 20 renderer tools; a drop means a handler failed
   // to register, which the extension itself cannot detect.
-  expect(jupyterTools).toHaveLength(18);
+  expect(jupyterTools).toHaveLength(20);
   expect(jupyterTools).toEqual(expect.arrayContaining([
     'jupyter.get_notebook_projection',
+    'jupyter.create_notebook',
     'jupyter.list_cells',
     'jupyter.insert_cell',
     'jupyter.update_cell_source',
     'jupyter.run_cell',
+    'jupyter.get_runtime_info',
     'jupyter.interrupt',
   ]));
 });

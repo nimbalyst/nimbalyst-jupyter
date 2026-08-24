@@ -40,6 +40,7 @@ export interface CellSnapshot {
 export interface CellOutputSnapshot {
   id: string;
   index: number;
+  cellType: CellType;
   executionCount: nbformat.ExecutionCount | null;
   outputs: nbformat.IOutput[];
 }
@@ -177,6 +178,7 @@ export function createEditorAPI(
     const base = {
       id: cell.sharedModel.getId(),
       index,
+      cellType: cell.type as CellType,
       executionCount: null,
       outputs: [] as nbformat.IOutput[],
     };

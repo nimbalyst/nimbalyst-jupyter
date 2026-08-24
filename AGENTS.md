@@ -40,9 +40,9 @@ npx vitest run tests/notebookProjection.test.ts   # single test file
 
 - `contributions.customEditors` maps `*.ipynb` to the `JupyterNotebookEditor` component
   exported from `src/index.tsx`'s `components` map, and declares collaboration support.
-- `contributions.aiTools` lists 18 `jupyter.*` tools (projection, cell CRUD, execution
-  with timeouts, transient execute, kernel introspection, interrupt/restart); all
-  handlers live in `src/aiTools.ts`.
+- `contributions.aiTools` lists 20 `jupyter.*` tools (projection, notebook creation,
+  cell CRUD, execution with timeouts, transient execute, kernel introspection and
+  runtime identity, interrupt/restart); all handlers live in `src/aiTools.ts`.
 - `contributions.backendModules` declares `jupyter-runtime` (`dist/backend.js`, a
   utility process holding `mcp-server-register`). It is **disabled by default** and
   prompts on first use.
@@ -136,6 +136,13 @@ after the last lease expires and is killed on `deactivate`.
 
 ### Important gotchas
 
+- `jupyter.run_all` returns a per-cell status summary by default, not outputs.
+  Full snapshots of a large notebook are a context bomb, so outputs are opt-in via
+  `includeOutputs`; the first failing cell is expanded inline (`firstError`, with a
+  truncated traceback) because that is the one an agent acts on.
+- `src/services/notebookTemplate.ts` is the only place that builds nbformat by hand.
+  `jupyter.create_notebook` writes a file that has no live model yet; every other
+  write still goes through `NotebookModel` so the human sees it.
 - Execution tool timeouts do NOT stop the kernel. `run_cell`/`run_all`/`execute`
   return `timedOut`/partial outputs while the code keeps running; `jupyter.interrupt`
   is the only remedy. `getExecutionStatus()` polls the in-flight registry kept in
