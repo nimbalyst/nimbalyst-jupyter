@@ -23,7 +23,19 @@ describe('managed Jupyter backend helpers', () => {
       '--IdentityProvider.token=secret-token',
       '--ServerApp.password=',
       '--ServerApp.allow_origin=*',
+      '--ServerApp.shutdown_no_activity_timeout=1800',
+      '--MappingKernelManager.cull_idle_timeout=7200',
+      '--MappingKernelManager.cull_interval=300',
     ]);
+  });
+
+  it('leaves cull_connected unset so a connected editor keeps its idle kernel', () => {
+    const args = buildJupyterServerArgs({
+      rootDir: '/workspace/notebooks',
+      port: 8899,
+      token: 'secret-token',
+    });
+    expect(args.some((arg) => arg.startsWith('--MappingKernelManager.cull_connected'))).toBe(false);
   });
 
   it('keeps requested roots inside the active workspace', () => {

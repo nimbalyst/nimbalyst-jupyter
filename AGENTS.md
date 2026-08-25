@@ -111,6 +111,25 @@ PATH, and common system paths), can `pip install` the Jupyter stack, and spawns
 inside the workspace. Editors hold renewable leases; the server idles down 30 minutes
 after the last lease expires and is killed on `deactivate`.
 
+**Never let `deactivate` be the only thing that stops a spawned server.** It does not
+run on host crash, signal, or a dropped IPC channel, and a `jupyter-server` child
+outlives its parent — it reparents to init and runs forever. Three layers guard this,
+and all three should stay:
+
+1. `installTeardownHooks` in `src/backend.ts` kills the child on `exit` (synchronous
+   SIGKILL — the handler cannot await), `SIGTERM`/`SIGINT`/`SIGHUP`, and `disconnect`.
+2. `src/services/serverRegistry.ts` records every spawned pid to
+   `<dataDir>/managed-servers.json` and `activate()` reclaims leftovers on next launch.
+   This is the only layer that survives a SIGKILL of the backend itself. Reclaim matches
+   the recorded token against the live command line before signalling, because pids get
+   recycled and killing a stranger is worse than leaking.
+3. `buildJupyterServerArgs` passes `shutdown_no_activity_timeout` **plus**
+   `MappingKernelManager.cull_idle_timeout`. The former only fires at zero kernels
+   (`serverapp.py: shutdown_no_activity`), so without kernel culling an abandoned server
+   holding an idle kernel never exits. `cull_connected` stays at its default false so a
+   connected editor's idle kernel is never culled. These timeouts are deliberately
+   slacker than `IDLE_SHUTDOWN_MS` — they are a backstop and must not race layers 1–2.
+
 ### Security invariants — do not regress these
 
 - **Loopback only.** `assertLoopbackServerConfig` gates every server config, including

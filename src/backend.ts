@@ -13,6 +13,12 @@ import net from 'node:net';
 import path from 'node:path';
 import { spawn, type ChildProcess } from 'node:child_process';
 import os from 'node:os';
+import {
+  forceKillSurvivors,
+  forgetServer,
+  reclaimOrphanedServers,
+  recordServer,
+} from './services/serverRegistry.js';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -253,12 +259,19 @@ let startingState: ServerState | null = null;
 let shuttingDown = false;
 const IDLE_SHUTDOWN_MS = 30 * 60_000;
 const SERVER_LEASE_TTL_MS = 3 * 60_000;
+const RECLAIM_GRACE_MS = 3_000;
 const serverLeases = new Map<string, ServerLease>();
+let teardownHooksInstalled = false;
 
 export async function activate(ctx: ActivateCtx) {
   shuttingDown = false;
   const { workspacePath, dataDir, log, registerMcpTools } = ctx.services;
   mkdirSync(dataDir, { recursive: true });
+
+  // A previous backend process may have died without stopping its server. Reclaim
+  // before starting anything of our own, so leaks cannot accumulate across launches.
+  reclaimPreviousServers(dataDir, log);
+  installTeardownHooks(dataDir, log);
 
   await registerMcpTools(TOOL_DESCRIPTORS.map((tool) => ({ ...tool })));
 
@@ -321,6 +334,70 @@ export async function activate(ctx: ActivateCtx) {
       await stopServer();
     },
   };
+}
+
+function reclaimPreviousServers(
+  dataDir: string,
+  log: ActivateCtx['services']['log'],
+): void {
+  const skipPids = managedServer?.info.pid != null ? [managedServer.info.pid] : [];
+  const reclaimed = reclaimOrphanedServers(dataDir, { skipPids });
+  if (reclaimed.length === 0) return;
+  log('warn', `[jupyter] reclaiming ${reclaimed.length} orphaned server(s): ${reclaimed.join(', ')}`);
+  const timer = setTimeout(() => {
+    const killed = forceKillSurvivors(reclaimed);
+    if (killed.length > 0) {
+      log('warn', `[jupyter] force-killed orphaned server(s): ${killed.join(', ')}`);
+    }
+  }, RECLAIM_GRACE_MS);
+  timer.unref?.();
+}
+
+/**
+ * Kills the managed server when this process goes away. `deactivate` covers the
+ * graceful path, but it does not run on host crash, signal, or a dropped IPC
+ * channel — and without these hooks the child simply reparents to init and survives.
+ *
+ * The `exit` handler must be synchronous, so it uses SIGKILL directly rather than the
+ * SIGTERM-then-escalate dance in `stopState`.
+ */
+function installTeardownHooks(
+  dataDir: string,
+  log: ActivateCtx['services']['log'],
+): void {
+  if (teardownHooksInstalled) return;
+  teardownHooksInstalled = true;
+
+  process.on('exit', () => {
+    const pid = managedServer?.info.pid ?? startingState?.info.pid ?? null;
+    if (pid == null) return;
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // Already gone.
+    }
+    try {
+      forgetServer(dataDir, pid);
+    } catch {
+      // Best-effort; the next activate() reclaims whatever is left.
+    }
+  });
+
+  const shutdownAndExit = (reason: string) => {
+    void (async () => {
+      shuttingDown = true;
+      log('info', `[jupyter] backend shutting down (${reason}); stopping managed server`);
+      if (startingState) await stopState(startingState).catch(() => undefined);
+      await stopServer().catch(() => undefined);
+      process.exit(0);
+    })();
+  };
+
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+    process.on(signal, () => shutdownAndExit(signal));
+  }
+  // The host closed the utility process IPC channel: nothing will call deactivate.
+  process.on('disconnect', () => shutdownAndExit('disconnect'));
 }
 
 function ensureServerCoalesced(
@@ -391,6 +468,22 @@ function pruneAssets(assetDir: string): void {
   }
 }
 
+/**
+ * Last-resort self-termination for a server nothing is managing any more.
+ *
+ * `ServerApp.shutdown_no_activity_timeout` only fires when the server has *zero*
+ * kernels, so kernel culling has to be enabled for the chain to complete — an
+ * abandoned server holding an idle kernel would otherwise live forever.
+ * `cull_connected` stays at its default (false) so a kernel an editor is still
+ * attached to is never culled out from under the user.
+ *
+ * These are deliberately slack compared to IDLE_SHUTDOWN_MS: the lease/idle logic and
+ * the teardown hooks are the real mechanisms, and this must never race them.
+ */
+const KERNEL_CULL_IDLE_SECONDS = 2 * 60 * 60;
+const KERNEL_CULL_INTERVAL_SECONDS = 5 * 60;
+const SERVER_NO_ACTIVITY_SHUTDOWN_SECONDS = 30 * 60;
+
 export function buildJupyterServerArgs(options: {
   rootDir: string;
   port: number;
@@ -405,6 +498,9 @@ export function buildJupyterServerArgs(options: {
     `--IdentityProvider.token=${options.token}`,
     '--ServerApp.password=',
     '--ServerApp.allow_origin=*',
+    `--ServerApp.shutdown_no_activity_timeout=${SERVER_NO_ACTIVITY_SHUTDOWN_SECONDS}`,
+    `--MappingKernelManager.cull_idle_timeout=${KERNEL_CULL_IDLE_SECONDS}`,
+    `--MappingKernelManager.cull_interval=${KERNEL_CULL_INTERVAL_SECONDS}`,
   ];
 }
 
@@ -609,6 +705,8 @@ async function ensureServer(
       },
       logStream,
       log: ctx.log,
+      dataDir: ctx.dataDir,
+      port,
     });
     startingState = state;
 
@@ -637,6 +735,8 @@ function spawnServer(options: {
   info: ManagedServerInfo;
   logStream: WriteStream;
   log: ActivateCtx['services']['log'];
+  dataDir: string;
+  port: number;
 }): ServerState {
   const child = spawn(options.command, options.args, {
     env: options.env,
@@ -652,12 +752,24 @@ function spawnServer(options: {
     startError: null,
     exit: null,
   };
+  // Recorded before the server is known to be healthy: a spawn that hangs during
+  // startup is exactly the kind that gets abandoned and needs reclaiming later.
+  if (child.pid != null) {
+    recordServer(options.dataDir, {
+      pid: child.pid,
+      port: options.port,
+      token: options.info.token,
+      rootDir: options.info.rootDir,
+      startedAt: options.info.startedAt,
+    });
+  }
   child.once('error', (error) => {
     state.startError = error;
   });
   child.once('exit', (code, signal) => {
     state.exit = { code, signal };
     lastExit = state.exit;
+    if (child.pid != null) forgetServer(options.dataDir, child.pid);
     if (managedServer === state) {
       managedServer = null;
       serverLeases.clear();
