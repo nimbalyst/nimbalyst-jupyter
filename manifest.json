@@ -91,6 +91,8 @@
     ]
   },
   "marketplace": {
+    "repositoryUrl": "https://github.com/nimbalyst/nimbalyst-jupyter",
+    "changelog": "0.4.0: First marketplace release with a managed local Jupyter runtime, guided Python and Jupyter setup, a slim notebook editor, and AI tools for cell CRUD, execution, variable introspection, and DataFrame previews.",
     "categories": ["data"],
     "tags": ["jupyter", "notebook", "python", "data", "ipynb"],
     "icon": "auto_stories",
