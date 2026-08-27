@@ -25,7 +25,8 @@ npx vitest run tests/notebookProjection.test.ts   # single test file
 - **Never run `npm run dev` yourself** — the user runs the watch build.
 - To load changes into a running Nimbalyst dev instance, use the extension-dev MCP
   tools (`extension_reload` / `extension_install`) pointed at this repo's `dist/`.
-- Do not release; publishing happens from the monorepo's `/release-extension` flow.
+- Do not release; publishing to the Nimbalyst extension marketplace is a separate,
+  maintainer-run flow.
 - Live host E2E lives in `e2e/*.spec.ts` and runs only through the extension-dev MCP
   tool (`extension_test_run({ testFile })`) against the user's running Nimbalyst
   window — never through `npm`, and never as part of `npm test`. It asserts against

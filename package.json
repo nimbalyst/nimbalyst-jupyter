@@ -4,6 +4,14 @@
   "description": "Jupyter notebook support for Nimbalyst: a custom .ipynb editor backed by @jupyterlab/notebook with managed local Jupyter kernels.",
   "license": "MIT",
   "author": "Nimbalyst, Inc.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nimbalyst/nimbalyst-jupyter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nimbalyst/nimbalyst-jupyter/issues"
+  },
+  "homepage": "https://github.com/nimbalyst/nimbalyst-jupyter#readme",
   "type": "module",
   "main": "dist/index.js",
   "engines": {

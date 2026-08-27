@@ -19,6 +19,15 @@ real execution through a local `jupyter_server` managed by the extension backend
 - Backend MCP tools for starting, stopping, checking, and listing kernels from the
   managed local Jupyter server
 
+## Installing
+
+The extension is distributed through the Nimbalyst extension marketplace; install it
+from there to get the published build.
+
+To run it from source instead, clone this repo, `npm install && npm run build`, and
+point Nimbalyst's extension install at this directory's `dist/`. See
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the full development loop.
+
 ## Getting a kernel
 
 On first use, the editor asks Nimbalyst to grant its local runtime backend. It
@@ -98,11 +107,15 @@ Open [`examples/nimbalyst-integration-demo.ipynb`](./examples/nimbalyst-integrat
 inside Nimbalyst to exercise the extension's notebook custom editor, registered
 `.ipynb` file icon, rich MIME output rendering, and Jupyter AI tools.
 
-## Releasing
+## Contributing
 
-Published to the Nimbalyst extension CDN via the monorepo's `/release-extension`
-flow. This repo is registered in `packages/marketplace/release-extensions.txt` with
-`|skip-build`, so it is built and published from its own checkout.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup and pull request expectations, and
+[AGENTS.md](./AGENTS.md) for the architecture guide — the two notebook surfaces, where
+the kernel comes from, and the build constraints.
+
+Security issues go through GitHub private vulnerability reporting rather than the
+issue tracker. [SECURITY.md](./SECURITY.md) explains the threat model and the
+invariants a change must not regress.
 
 ## License
 

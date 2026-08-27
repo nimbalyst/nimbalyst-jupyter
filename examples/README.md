@@ -22,7 +22,7 @@ Good for exercising:
 
 ## error-recovery-demo.ipynb
 
-Every code cell fails, each in a different way. This is the fixture for the error-handling work still open on the roadmap (KR-01, KR-03).
+Every code cell fails, each in a different way. This is the fixture for error-handling work.
 
 The cell worth looking at first prints three lines of real work and *then* raises — partial output must survive alongside the error, both in the rendered notebook and through `jupyter.get_cell_output`. The last cell succeeds, so the notebook also shows what run-all does after a failure.
 
