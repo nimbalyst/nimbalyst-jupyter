@@ -150,8 +150,8 @@ and all three should stay:
   notebook. If you add a mutating tool, mark it `editor-write` and use the writable
   guard — `tests/aiTools.test.ts` asserts the exact list.
 - **`overrides` in `pnpm-workspace.yaml`** pin `sanitize-html`, `mermaid`, `dompurify`,
-  `postcss`, `nanoid`, and `fast-uri` past known advisories. All six are bundled into
-  `dist/index.js` and process untrusted notebook content. Don't drop them; `pnpm audit
+  `postcss`, `nanoid`, `fast-uri`, `source-map-js`, and `katex` past known advisories.
+  All of them are bundled into `dist/index.js` and process untrusted notebook content. Don't drop them; `pnpm audit
   --prod` should stay at zero.
 
 ### Important gotchas
