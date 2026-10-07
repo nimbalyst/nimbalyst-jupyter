@@ -6,13 +6,13 @@ This is the third test layer:
 
 | Layer | Command | Covers |
 | --- | --- | --- |
-| Unit | `npm test` | Serializers, projection, cell actions, session context |
-| Backend integration | `npm run test:integration` | Real backend + real Jupyter Server |
+| Unit | `pnpm test` | Serializers, projection, cell actions, session context |
+| Backend integration | `pnpm run test:integration` | Real backend + real Jupyter Server |
 | **Live host (here)** | `extension_test_run` MCP tool | The mounted editor, toolbars, AI tools, host lifecycle |
 
 ## Running
 
-Requires Nimbalyst running in dev mode (which is what exposes CDP on port 9222) with this project open as the workspace. The user starts that; never run `npm run dev` yourself.
+Requires Nimbalyst running in dev mode (which is what exposes CDP on port 9222) with this project open as the workspace. The user starts that; never run `pnpm run dev` yourself.
 
 Run a spec with the extension-dev MCP tool:
 
@@ -20,9 +20,9 @@ Run a spec with the extension-dev MCP tool:
 extension_test_run({ testFile: "/absolute/path/to/nimbalyst-jupyter/e2e/notebookEditor.spec.ts" })
 ```
 
-There is no `npm` script on purpose. Playwright is not a dependency of this repo — the specs deliberately borrow the host's installation (see below), so `npx playwright test` here would either fail to resolve or install a second, conflicting copy.
+There is no package script on purpose. Playwright is not a dependency of this repo — the specs deliberately borrow the host's installation (see below), so `pnpm exec playwright test` here would either fail to resolve or install a second, conflicting copy.
 
-Build first if you changed `src/`: the specs assert against `dist/`, so run `npm run build` and `extension_reload` before trusting a result.
+Build first if you changed `src/`: the specs assert against `dist/`, so run `pnpm run build` and `extension_reload` before trusting a result.
 
 ## Files
 
@@ -58,4 +58,4 @@ These tests are **not sandboxed**. They can modify the user's real app and files
 
 - `callExtensionTool` goes through the renderer tool bridge, which runs the tool **handler only**. It does not mount hidden editors for closed files and does not persist the editor afterwards — both are the MCP wrapper's job. So specs assert that tools mutate the live notebook; disk persistence for tool-driven edits is covered through the MCP path by hand, not here.
 - Execution tests need a configured Jupyter runtime. Without one they skip with an explicit reason rather than passing vacuously. If they skip unexpectedly, check `localStorage["nimbalyst.jupyter.devServer"]` in the renderer — a stale dev override there silently wins over the managed runtime, so the editor points at whatever endpoint it names and never reports that it cannot reach it.
-- `npm run typecheck` does not cover this directory (`tsconfig.json` includes `src` and `tests`). Adding it would require a local Playwright install, which is exactly what the CommonJS arrangement avoids.
+- `pnpm run typecheck` does not cover this directory (`tsconfig.json` includes `src` and `tests`). Adding it would require a local Playwright install, which is exactly what the CommonJS arrangement avoids.

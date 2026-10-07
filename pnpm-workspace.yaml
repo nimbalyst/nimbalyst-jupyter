@@ -1,0 +1,24 @@
+# Flat node_modules like npm, so undeclared (phantom) dependencies keep resolving.
+nodeLinker: hoisted
+
+# Refuse versions published less than 72 hours ago (supply-chain cooldown, same as the main Nimbalyst repo).
+minimumReleaseAge: 4320
+
+# All six are bundled into dist/index.js and process untrusted notebook content.
+# sanitize-html <=2.17.4 lets javascript: URIs through action/formaction/data/poster/background;
+# mermaid <11.16.1 is open to prototype pollution and DoS from diagram source;
+# dompurify <=3.4.12 leaves a detached subtree executable after IN_PLACE hook removal.
+# Each pin stays inside the range its dependent declares.
+overrides:
+  sanitize-html: ^2.17.7
+  mermaid: ^11.17.0
+  dompurify: ^3.4.14
+  postcss: ^8.5.26
+  nanoid: ^3.3.18
+  fast-uri: ^3.1.5
+
+# Install-script allowlist. esbuild's postinstall verifies its platform binary, which vite needs for build and tests.
+# @fortawesome/fontawesome-free's postinstall only prints a message.
+allowBuilds:
+  esbuild: true
+  '@fortawesome/fontawesome-free': false

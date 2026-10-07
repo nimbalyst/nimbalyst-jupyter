@@ -7,7 +7,7 @@ import controlsPackage from '@jupyter-widgets/controls/package.json' with { type
 /**
  * The renderer sourcemap is ~13MB -- more than twice the bundle it maps -- so it
  * stays out of the published artifact. Set NIMBALYST_EXT_SOURCEMAP=1 (or use
- * `npm run dev` / `npm run build:debug`) to get it back while debugging.
+ * `pnpm run dev` / `pnpm run build:debug`) to get it back while debugging.
  * dist/backend.js.map is ~47KB and ships unconditionally, since diagnosing the
  * process-spawning half is worth far more than it costs.
  */

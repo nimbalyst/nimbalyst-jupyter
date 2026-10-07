@@ -27,7 +27,7 @@ export const test = base.extend<{ page: Page }>({
     } catch (error) {
       throw new Error(
         `Could not connect to Nimbalyst via CDP at ${CDP_ENDPOINT}.\n` +
-          `Start Nimbalyst in dev mode (npm run dev) before running the live suite.\n` +
+          `Start Nimbalyst in dev mode (pnpm run dev) before running the live suite.\n` +
           `Original error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }

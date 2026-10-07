@@ -14,22 +14,22 @@ at runtime and is marked `external` in the Vite build. The contract with the hos
 ## Commands
 
 ```bash
-npm run build      # renderer + backend -> dist/ (index.js, index.css, backend.js)
-npm run build:debug # same, but emits the renderer sourcemap
-npm run typecheck  # tsc --noEmit (strict; noUnusedLocals/Parameters on)
-npm test           # vitest run tests
-npm run test:watch # vitest watch
-npx vitest run tests/notebookProjection.test.ts   # single test file
+pnpm run build      # renderer + backend -> dist/ (index.js, index.css, backend.js)
+pnpm run build:debug # same, but emits the renderer sourcemap
+pnpm run typecheck  # tsc --noEmit (strict; noUnusedLocals/Parameters on)
+pnpm test           # vitest run tests
+pnpm run test:watch # vitest watch
+pnpm exec vitest run tests/notebookProjection.test.ts   # single test file
 ```
 
-- **Never run `npm run dev` yourself** — the user runs the watch build.
+- **Never run `pnpm run dev` yourself** — the user runs the watch build.
 - To load changes into a running Nimbalyst dev instance, use the extension-dev MCP
   tools (`extension_reload` / `extension_install`) pointed at this repo's `dist/`.
 - Do not release; publishing to the Nimbalyst extension marketplace is a separate,
   maintainer-run flow.
 - Live host E2E lives in `e2e/*.spec.ts` and runs only through the extension-dev MCP
   tool (`extension_test_run({ testFile })`) against the user's running Nimbalyst
-  window — never through `npm`, and never as part of `npm test`. It asserts against
+  window — never through a `pnpm` script, and never as part of `pnpm test`. It asserts against
   the built `dist/`, so build and reload before trusting a result. `e2e/README.md`
   explains the CommonJS scoping that makes the host's Playwright resolvable, and the
   rules these unsandboxed tests follow.
@@ -149,10 +149,10 @@ and all three should stay:
   deliberately `editor-read` and stays available, since it never writes to the
   notebook. If you add a mutating tool, mark it `editor-write` and use the writable
   guard — `tests/aiTools.test.ts` asserts the exact list.
-- **`overrides` in `package.json`** pin `sanitize-html`, `mermaid`, `dompurify`,
+- **`overrides` in `pnpm-workspace.yaml`** pin `sanitize-html`, `mermaid`, `dompurify`,
   `postcss`, `nanoid`, and `fast-uri` past known advisories. All six are bundled into
-  `dist/index.js` and process untrusted notebook content. Don't drop them; `npm audit
-  --omit=dev` should stay at zero.
+  `dist/index.js` and process untrusted notebook content. Don't drop them; `pnpm audit
+  --prod` should stay at zero.
 
 ### Important gotchas
 
@@ -195,7 +195,7 @@ and all three should stay:
   array. It covers React *and* yjs / y-protocols / Lexical — bundling a second `Y.Doc`
   breaks the host's `instanceof` checks. Never hand-maintain this list.
 - The renderer sourcemap (~13MB) is off by default and is not published. Use
-  `npm run build:debug` or `NIMBALYST_EXT_SOURCEMAP=1` when you need it. The much
+  `pnpm run build:debug` or `NIMBALYST_EXT_SOURCEMAP=1` when you need it. The much
   smaller `backend.js.map` always ships.
 - `vite.backend.config.ts` builds `src/backend.ts` for node20 with builtins external
   and `emptyOutDir: false`, so it must run after the renderer build.

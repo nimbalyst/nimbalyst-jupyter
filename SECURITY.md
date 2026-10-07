@@ -29,7 +29,7 @@ These properties are load-bearing. A change that weakens one is a security regre
 - **Server root stays in the workspace.** `resolveWorkspaceRoot` bounds the managed server's root directory.
 - **The managed server always has a token.** `allowTokenless` and an explicit `token` are absent from the `ensure_server` MCP schema and ignored unless `NIMBALYST_JUPYTER_DEV_UNSAFE_SERVER=1`. A tokenless local Jupyter is arbitrary code execution for anything else on the machine.
 - **Read-only notebooks refuse writes on the AI path.** `requireWritableJupyterEditorAPI` blocks every `editor-write` tool, and `createEditorAPI` guards the same methods as a backstop. `NotebookModel.readOnly` alone does not stop `sharedModel` writes.
-- **Bundled parsers stay patched.** The `overrides` block in `package.json` pins `sanitize-html`, `mermaid`, `dompurify`, `postcss`, `nanoid`, and `fast-uri` past known advisories. All six are bundled into `dist/index.js` and process untrusted notebook content. `npm audit --omit=dev` should report zero.
+- **Bundled parsers stay patched.** The `overrides` block in `pnpm-workspace.yaml` pins `sanitize-html`, `mermaid`, `dompurify`, `postcss`, `nanoid`, and `fast-uri` past known advisories. All six are bundled into `dist/index.js` and process untrusted notebook content. `pnpm audit --prod` should report zero.
 - **No orphaned servers.** Three independent layers stop a spawned `jupyter-server` (process teardown hooks, a pid registry reclaimed on next launch, and Jupyter's own idle culling), because a child process outlives its parent.
 
 ## Debug flags

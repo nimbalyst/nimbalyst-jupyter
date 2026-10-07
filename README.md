@@ -17,7 +17,7 @@ A Jupyter notebook editor for [Nimbalyst](https://nimbalyst.com). Open, edit, an
 
 The extension is distributed through the Nimbalyst extension marketplace; install it from there to get the published build.
 
-To run it from source instead, clone this repo, `npm install && npm run build`, and point Nimbalyst's extension install at this directory's `dist/`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full development loop.
+To run it from source instead, clone this repo, `pnpm install && pnpm run build`, and point Nimbalyst's extension install at this directory's `dist/`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full development loop.
 
 ## Getting a kernel
 
@@ -51,12 +51,13 @@ jupyter server --no-browser --ip=127.0.0.1 --port=8889 \
 ## Development
 
 ```bash
-npm install        # install deps (uses the published @nimbalyst/extension-sdk)
-npm run build      # bundle to dist/
-npm run build:debug # same, plus the renderer sourcemap
-npm run dev        # rebuild on change
-npm run typecheck
-npm test
+corepack enable    # once; package.json pins pnpm via packageManager
+pnpm install       # install deps (uses the published @nimbalyst/extension-sdk)
+pnpm run build     # bundle to dist/
+pnpm run build:debug # same, plus the renderer sourcemap
+pnpm run dev       # rebuild on change
+pnpm run typecheck
+pnpm test
 ```
 
 The renderer sourcemap is ~13MB and is excluded from the published build; use `build:debug` or `NIMBALYST_EXT_SOURCEMAP=1` when you need it.

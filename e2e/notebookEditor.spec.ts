@@ -5,7 +5,7 @@
  *
  *   extension_test_run({ testFile: "<repo>/e2e/notebookEditor.spec.ts" })
  *
- * Deliberately NOT part of `npm test`: these drive the user's real window and
+ * Deliberately NOT part of `pnpm test`: these drive the user's real window and
  * real filesystem. See e2e/README.md.
  */
 
